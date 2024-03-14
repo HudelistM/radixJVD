@@ -22,6 +22,15 @@ class WorkDay(models.Model):
     turnus = models.CharField(max_length=100, blank=True, null=True)  
     vacation_days = models.IntegerField(default=0, blank=True, null=True)
 
+class ShiftType(models.Model):
+    name = models.CharField(max_length=100)
+    start_time = models.TimeField(null=True, blank=True)
+    end_time = models.TimeField(null=True, blank=True)
+    description = models.TextField(blank=True)
+
+    def __str__(self):
+        return self.name
+
 
 class ScheduleEntry(models.Model):
     date = models.DateField()
@@ -32,11 +41,3 @@ class ScheduleEntry(models.Model):
     class Meta:
         unique_together = ('date', 'shift_type')
 
-class ShiftType(models.Model):
-    name = models.CharField(max_length=100)
-    start_time = models.TimeField(null=True, blank=True)
-    end_time = models.TimeField(null=True, blank=True)
-    description = models.TextField(blank=True)
-
-    def __str__(self):
-        return self.name

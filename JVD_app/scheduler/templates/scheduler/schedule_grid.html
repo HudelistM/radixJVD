@@ -1,0 +1,43 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mx-auto px-4 sm:px-8">
+  <div class="py-8">
+    <div class="flex flex-row mb-1 sm:mb-0 justify-between w-full">
+      <h2 class="text-2xl leading-tight">
+        Weekly Schedule
+      </h2>
+    </div>
+    <div class="-mx-4 sm:-mx-8 px-4 sm:px-8 py-4 overflow-x-auto">
+      <div class="inline-block min-w-full shadow rounded-lg overflow-hidden">
+        <table class="min-w-full leading-normal">
+            <thead>
+                <tr>
+                  <th class="...">Date</th>
+                  {% for shift_type in shift_types %}
+                  <th class="...">{{ shift_type.name }}</th>
+                  {% endfor %}
+                </tr>
+              </thead>
+            <tbody>
+                {% for day in week_dates %}
+                <tr>
+                  <!-- Date column -->
+                  <td class="...">{{ day|date:"D d.m.Y" }}</td>
+                  <!-- Columns for shift entries -->
+                  {% for shift_type in shift_types %}
+                  <td class="...">
+                    <!-- You'll insert logic here to display the employees scheduled for this shift type on this day -->
+                    <!-- For now, you can leave it blank or put placeholder text -->
+                    ...
+                  </td>
+                  {% endfor %}
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
