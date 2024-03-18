@@ -1,3 +1,29 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Add this to give a visual cue for dragging */
+.gu-mirror {
+    @apply block w-full max-w-xs p-2 m-0 bg-gray-200 border border-gray-300 rounded-md shadow-lg;
+    /* This class is added by dragula to the element being dragged */
+  }
+  
+  /* Ensure this is processed correctly by your build step */
+  .draggable-elements .employee-block {
+    @apply relative p-2 m-1 bg-gray-200 cursor-pointer border border-gray-300 rounded-md;
+  }
+  
+  .dropzone {
+    @apply bg-red-400 p-2 rounded border border-dashed border-gray-400 min-h-[50px];
+  }
+
+  .dropzone .employee-block {
+    @apply bg-white border-gray-500 text-gray-700;
+  }
+
+  .draggable-elements .employee-block .drop-counter {
+    @apply top-0 right-0 bg-blue-500 text-blue-800 text-xs px-2 py-1 rounded;
+}
+  .hide-counter .drop-counter {
+    @apply hidden; 
+}

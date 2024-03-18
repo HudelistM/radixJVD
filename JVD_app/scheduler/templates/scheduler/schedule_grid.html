@@ -10,34 +10,46 @@
     </div>
     <div class="-mx-4 sm:-mx-8 px-4 sm:px-8 py-4 overflow-x-auto">
       <div class="inline-block min-w-full shadow rounded-lg overflow-hidden">
-        <table class="min-w-full leading-normal">
+         <table class="min-w-full leading-normal table-fixed border-collapse">
             <thead>
-                <tr>
-                  <th class="...">Date</th>
-                  {% for shift_type in shift_types %}
-                  <th class="...">{{ shift_type.name }}</th>
-                  {% endfor %}
-                </tr>
-              </thead>
-            <tbody>
-                {% for day in week_dates %}
-                <tr>
-                  <!-- Date column -->
-                  <td class="...">{{ day|date:"D d.m.Y" }}</td>
-                  <!-- Columns for shift entries -->
-                  {% for shift_type in shift_types %}
-                  <td class="...">
-                    <!-- You'll insert logic here to display the employees scheduled for this shift type on this day -->
-                    <!-- For now, you can leave it blank or put placeholder text -->
-                    ...
-                  </td>
-                  {% endfor %}
-                </tr>
+              <tr>
+                <th class="border p-4">Date</th>
+                {% for shift_type in shift_types %}
+                <th class="border p-4">{{ shift_type.name }}</th>
                 {% endfor %}
+              </tr>
+            </thead>
+            <tbody>
+              {% for day in week_dates %}
+              <tr>
+                <td class="border p-4">{{ day|date:"D d.m.Y" }}</td>
+                {% for shift_type in shift_types %}
+                  <!-- In your loop inside schedule_grid.html -->
+                  <td class="border p-4">
+                     <div id="shift-{{ shift_type.id }}-{{ day|date:'Y-m-d' }}"
+                        class="dropzone"
+                        data-shift-type-id="{{ shift_type.id }}"
+                        data-date="{{ day|date:'Y-m-d' }}">
+                     <!-- Your shift entries will go here -->
+                     </div>
+                  </td>
+                {% endfor %}
+              </tr>
+              {% endfor %}
             </tbody>
-        </table>
+          </table>
+          
+       <!-- ... -->
+       <div id="employees-list" class="draggable-elements">
+        {% for employee in employees %}
+        <div class="employee-block" data-employee-id="{{ employee.id }}">
+          <span class="employee-name">{{ employee.name }}</span> <!-- Wrap the name -->
+          <span class="drop-counter">0/7</span> <!-- Counter stays as is -->
+        </div>
+      {% endfor %}
       </div>
     </div>
   </div>
 </div>
-{% endblock %}
+</div>
+       {% endblock %}

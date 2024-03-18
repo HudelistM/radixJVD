@@ -5,6 +5,10 @@ class Employee(models.Model):
     surname = models.CharField(max_length=100)
     role = models.CharField(max_length=100)
     group = models.CharField(max_length=100)
+    
+    def __str__(self):
+    # Customize this to display information that helps identify the employee
+        return f"{self.name} {self.surname} ({self.role})"
 
 class WorkDay(models.Model):
     employee = models.ForeignKey(Employee, on_delete=models.CASCADE)
@@ -36,7 +40,6 @@ class ScheduleEntry(models.Model):
     date = models.DateField()
     employees = models.ManyToManyField(Employee, related_name='schedule_entries')
     shift_type = models.ForeignKey(ShiftType, on_delete=models.CASCADE)
-
 
     class Meta:
         unique_together = ('date', 'shift_type')

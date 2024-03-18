@@ -11,6 +11,7 @@ urlpatterns = [
     path('accounts/', include('django.contrib.auth.urls')),
     path('register/', views.register, name='register'),
     path('schedule/', schedule_view, name='schedule_view'),
+    path('update_schedule/', views.update_schedule, name='update_schedule'),
     #path('Radnici',views.radnici, name='Radnici'), #
     #path('Dokumenti',views.dokumenti, name='Dokumenti'), #
     #path('Raspored',views.raspored, name='Raspored') #
