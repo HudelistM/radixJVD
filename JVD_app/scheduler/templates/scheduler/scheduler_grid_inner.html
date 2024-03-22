@@ -1,0 +1,43 @@
+{% load custom_templates %}
+<body>
+    <table class="min-w-full leading-normal table-fixed border-collapse">
+        <thead>
+        <tr>
+            <th class="border p-4">Date</th>
+            {% for shift_type in shift_types %}
+            <th class="border p-4">{{ shift_type.name }}</th>
+            {% endfor %}
+        </tr>
+        </thead>
+        <tbody>
+        {% for day in week_dates %}
+        <tr>
+            <td class="border p-4">{{ day|date:"D d.m.Y" }}</td>
+            {% for shift_type in shift_types %}
+            <td class="border p-4">
+            <div class="dropzone" data-shift-type-id="{{ shift_type.id }}" data-date="{{ day|date:'Y-m-d' }}">
+                {% with day_str=day|date:"Y-m-d" %}
+                {% with schedule_entry=schedule_data|get_item:day_str|get_item:shift_type.id %}
+                    {% if schedule_entry %}
+                    <!-- Diagnostic HTML Starts Here -->
+                    <div>Schedule Entry ID: {{ schedule_entry.id }}</div>
+                    <div>Employee Count: {{ schedule_entry.employees.all.count }}</div>
+                    {% for employee in schedule_entry.employees.all %}
+                        <div class="employee-block" data-employee-id="{{ employee.id }}">
+                        {{ employee.name }}
+                        </div>
+                    {% endfor %}
+                    <!-- Diagnostic HTML Ends Here -->
+                    {% else %}
+                    <div>No schedule entry for this slot.</div>
+                    {% endif %}
+                {% endwith %}
+                {% endwith %}
+            </div>
+            </td>
+            {% endfor %}
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</body>

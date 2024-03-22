@@ -44,3 +44,10 @@ class ScheduleEntry(models.Model):
     class Meta:
         unique_together = ('date', 'shift_type')
 
+class EmployeeShiftCounter(models.Model):
+    employee = models.ForeignKey(Employee, on_delete=models.CASCADE, related_name='shift_counters')
+    week_start_date = models.DateField()
+    shift_count = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        unique_together = ('employee', 'week_start_date')

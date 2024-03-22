@@ -2,7 +2,7 @@ from django.contrib import admin
 from django.urls import include,path
 from scheduler import views
 from django_browser_reload.urls import urlpatterns as reload_urls
-from scheduler.views import schedule_view
+from scheduler.views import schedule_view,api_schedule_data,download_schedule
 
 urlpatterns = [
     path("__reload__/", include("django_browser_reload.urls")),
@@ -12,7 +12,7 @@ urlpatterns = [
     path('register/', views.register, name='register'),
     path('schedule/', schedule_view, name='schedule_view'),
     path('update_schedule/', views.update_schedule, name='update_schedule'),
-    #path('Radnici',views.radnici, name='Radnici'), #
-    #path('Dokumenti',views.dokumenti, name='Dokumenti'), #
-    #path('Raspored',views.raspored, name='Raspored') #
+    path('api/schedule/', api_schedule_data, name='api_schedule_data'),
+    path('download_schedule/', download_schedule, name='download_schedule'),
+
 ]
