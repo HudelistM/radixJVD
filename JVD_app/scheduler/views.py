@@ -18,6 +18,12 @@ from openpyxl.styles import Alignment, Border, Side, Font, PatternFill
 from openpyxl.utils import get_column_letter
 from django.http import HttpResponse
 from io import BytesIO
+from openpyxl.styles import Color
+from openpyxl.workbook import Workbook
+from openpyxl.styles.differential import DifferentialStyle
+from openpyxl.formatting.rule import Rule
+
+
 
 def is_ajax(request):
     return request.headers.get('x-requested-with') == 'XMLHttpRequest'
@@ -171,41 +177,116 @@ def update_schedule(request):
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)
 
-def create_schedule_excel(week_dates, schedule_data):
-    # Create a workbook and select the active worksheet
-    wb = openpyxl.Workbook()
+    # Define color coding for employee groups as font colors
+    font_colors = {
+
+    }
+
+
+def as_text(value):
+    if value is None:
+        return ""
+    return str(value)
+
+def create_schedule_excel(week_dates, schedule_data, created_by):
+    # Initialize Excel workbook and worksheet
+    wb = Workbook()
     ws = wb.active
 
-    # Set title and headers
-    ws.title = "Weekly Schedule"
-    ws.append(['Date'] + [shift_type.name for shift_type in ShiftType.objects.all()])
+    day_names = ['Pon', 'Uto', 'Sri', 'Čet', 'Pet', 'Sub', 'Ned']
 
-    # Style the headers
-    header_font = Font(bold=True)
-    for cell in ws[1]:
+    # Set page setup to A4 and orientation to landscape
+    ws.page_setup.paperSize = ws.PAPERSIZE_A4
+    ws.page_setup.orientation = ws.ORIENTATION_LANDSCAPE
+
+    # Define styles for headers and cells
+    bold_font = Font(bold=True, size=11)
+    normal_font = Font(size=10)
+    alignment_center = Alignment(horizontal="center", vertical="center")
+    thin_border = Border(bottom=Side(style='thin'))
+
+    ws.merge_cells('A1:C1')
+    ws['A1'] = "JAVNA VATROGASNA POSTROJBA ĐURĐEVAC"
+    ws.merge_cells('D1:F1')
+    ws['D1'] = "Raspored smjena - Tjedni 2024"
+    ws.merge_cells('G1:I1')
+    ws['G1'] = f"Izradio: {created_by}"
+
+    # Freeze panes below headers
+    ws.freeze_panes = "A4"
+    
+    # Styling headers
+    header_font = Font(size=11, bold=True)
+    for cell in ws["1:1"]:
         cell.font = header_font
         cell.alignment = Alignment(horizontal="center", vertical="center")
-        cell.border = Border(bottom=Side(border_style="thin"))
-        cell.fill = PatternFill(start_color="FFFF00", end_color="FFFF00", fill_type="solid")
 
-    # Populate the Excel file
+    # Add column headers
+    ws.append(['Date'] + [shift_type.name for shift_type in ShiftType.objects.all()])
+    for cell in ws[3]:
+        cell.font = bold_font
+        cell.alignment = alignment_center
+        cell.border = thin_border
+
+    # Define colors for days and groups
+    fill_saturday = PatternFill(start_color='CCFFCC', end_color='CCFFCC', fill_type='solid')
+    fill_sunday = PatternFill(start_color='FFFF99', end_color='FFFF99', fill_type='solid')
+    group_colors = {
+        '1': "FF0000",  # Red color for Group 1
+        '2': "0000FF",  # Blue color for Group 2
+        '3': "008000",  # Green color for Group 3
+        '4': "FFA500",  # Orange color for Group 4
+    }
+
+    # Populate the Excel file with data
     for day in week_dates:
-        row_data = [day.strftime('%Y-%m-%d')]
-        for shift_type in ShiftType.objects.all():
-            schedule_entry = schedule_data.get(day.strftime('%Y-%m-%d'), {}).get(shift_type.id)
-            if schedule_entry:
-                # You could customize this part to include the information you want
-                row_data.append(', '.join(e.name for e in schedule_entry.employees.all()))
+        day_data = [day.strftime('%Y-%m-%d')]
+        for shift in ShiftType.objects.all():
+            entry = schedule_data.get(day.strftime('%Y-%m-%d'), {}).get(shift.id)
+            if entry:
+                entry_data = ', '.join([f"{e.name} {e.surname} ({e.group})" for e in entry.employees.all()])
+                day_data.append(entry_data)
             else:
-                row_data.append('No schedule entry')
-        ws.append(row_data)
+                day_data.append('-')
+        ws.append(day_data)
 
-    # Set column width based on the longest entry
+    # Style the data rows and apply group colors
+    for row in ws.iter_rows(min_row=4, max_row=ws.max_row):
+        for cell in row:
+            cell.font = normal_font
+            if cell.col_idx == 1:
+                cell.alignment = alignment_center
+                cell.border = thin_border
+            else:
+                # Apply group colors to employee names
+                text_parts = cell.value.split(', ') if cell.value else []
+                for part in text_parts:
+                    group = part.split(' ')[-1].strip('()')
+                    cell.font = Font(color=group_colors.get(group, '000000'))
+
+    # Adjust column widths
     for column_cells in ws.columns:
-        length = max(len(str(cell.value)) for cell in column_cells)
+        length = max(len(as_text(cell.value)) for cell in column_cells)
         ws.column_dimensions[get_column_letter(column_cells[0].column)].width = length
 
+    # Apply colors to weekend rows
+    for row in ws.iter_rows(min_row=4, max_row=ws.max_row):
+        if row[0].value:
+            day_of_week = datetime.strptime(row[0].value, '%Y-%m-%d').weekday()
+            if day_of_week == 5:
+                for cell in row:
+                    cell.fill = fill_saturday
+            elif day_of_week == 6:
+                for cell in row:
+                    cell.fill = fill_sunday
+
     return wb
+
+
+def as_text(value):
+    if value is None:
+        return ""
+    return str(value)
 
 def download_schedule(request):
     # Generate dates for the desired schedule week
@@ -236,7 +317,8 @@ def download_schedule(request):
             schedule_data[day_key][shift_type.id] = entry
 
     # Create an Excel workbook with the schedule data
-    wb = create_schedule_excel(week_dates, schedule_data)
+    current_user_name = request.user.get_full_name() if request.user.is_authenticated else "Unknown User"
+    wb = create_schedule_excel(week_dates, schedule_data, current_user_name)
 
     # Save the workbook to a BytesIO object
     excel_file = BytesIO()

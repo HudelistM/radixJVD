@@ -23,7 +23,6 @@ class WorkDay(models.Model):
     sunday_hours = models.FloatField(default=0, blank=True, null=True)
     free_days = models.IntegerField(default=0, blank=True, null=True)
     extra_hours = models.FloatField(default=0, blank=True, null=True)  
-    turnus = models.CharField(max_length=100, blank=True, null=True)  
     vacation_days = models.IntegerField(default=0, blank=True, null=True)
 
 class ShiftType(models.Model):

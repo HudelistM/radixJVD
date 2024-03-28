@@ -184,3 +184,4 @@ function createEmployeeBlock(employee) {
     div.textContent = `${employee.name} ${employee.surname}`;
     return div;
 }
+
