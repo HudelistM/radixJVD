@@ -7,23 +7,69 @@
     @apply block w-full max-w-xs p-2 m-0 bg-gray-200 border border-gray-300 rounded-md shadow-lg;
     /* This class is added by dragula to the element being dragged */
   }
+
+  .schedule-container {
+    @apply overflow-auto;
+  }
   
   /* Ensure this is processed correctly by your build step */
   .draggable-elements .employee-block {
-    @apply relative p-2 m-1 bg-gray-200 cursor-pointer border border-gray-300 rounded-md;
+    @apply inline-block p-2 bg-gray-200 cursor-pointer border border-gray-300 rounded-md;
+    /* This will allow the blocks to only be as wide as their content plus padding */
   }
   
+  .employee-block.group-1 {
+    @apply bg-blue-100 text-blue-800;
+  }
+  
+  .employee-block.group-2 {
+    @apply bg-green-100 text-green-800;
+  }
+  
+  .employee-block.group-3 {
+    @apply bg-red-100 text-red-800;
+  }
+
+
   .dropzone {
-    @apply bg-red-400 p-2 rounded border border-dashed border-gray-400 min-h-[50px];
+    @apply bg-white p-2 rounded  border-gray-400 min-h-[50px];
+  }
+
+  .draggable-elements .employee-block .employee-name {
+    @apply text-sm; /* or any other size */
   }
 
   .dropzone .employee-block {
-    @apply bg-white border-gray-500 text-gray-700;
+    @apply bg-gray-200 border border-blue-400 text-gray-700 py-1 rounded-md;
   }
 
   .draggable-elements .employee-block .drop-counter {
-    @apply top-0 right-0 bg-blue-500 text-blue-800 text-xs px-2 py-1 rounded;
+    @apply top-0 right-0 bg-blue-500 text-blue-800 text-sm px-2 py-1 rounded;
 }
   .hide-counter .drop-counter {
     @apply hidden; 
 }
+
+  .schedule-table th,
+  .schedule-table td {
+    padding: 8px;
+    text-align: center;
+    min-width: 120px; /* Adjust as necessary */
+    max-width: 200px; /* Adjust as necessary */
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .schedule-table .employee-name {
+    display: block;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .schedule-table .employee-block {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }

@@ -5,20 +5,24 @@
 
 
 <body>
-  <div class="schedule-navigation flex justify-center">
-    <div class="download-btn mx-auto border">
-      <a href="{% url 'download_schedule' %}" class="btn btn-primary">Download Schedule as Excel</a>
-    </div>
-    <div class="justify-between">
-      <button  id="prev-week" class="px-2">Previous Week</button>
-      <select id="month-select" class="px-2">
-          {% for month in months %}
-          <option value="{{ month.number }}">{{ month.name }}</option>
-          {% endfor %}
+  <div class="schedule-navigation flex justify-between items-center my-4">
+    <div class="flex gap-4">
+      <button id="prev-week" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
+        Previous Week
+      </button>
+      <select id="month-select" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5">
+        {% for month in months %}
+        <option value="{{ month.number }}">{{ month.name }}</option>
+        {% endfor %}
       </select>
-      <button id="next-week" class="px-2">Next Week</button>
+      <button id="next-week" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
+        Next Week
+      </button>
     </div>
-</div>
+    <a href="{% url 'download_schedule' %}" class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded">
+      Download Schedule as Excel
+    </a>
+  </div>
   <div class="container mx-auto px-4 sm:px-8">
     <div class="py-8">
       <div class="flex flex-row mb-1 sm:mb-0 justify-between w-full">
@@ -26,23 +30,23 @@
           Weekly Schedule
         </h2>
       </div>
-      <div class="-mx-4 sm:-mx-8 px-4 sm:px-8 py-4 overflow-x-auto">
-        <div class="inline-block min-w-full shadow rounded-lg overflow-hidden">
+      <div class="container mx-auto p-4 sm:p-8">
+        <div class="shadow overflow-hidden rounded border-b border-gray-200">
           <div id="schedule-grid" data-week-start="{{ week_dates.0|date:'Y-m-d' }}">
             {% include 'scheduler/scheduler_grid_inner.html' %}
           </div>
         <!-- ... -->
-        <div id="employees-list" class="draggable-elements">
+        <div id="employees-list" class="draggable-elements p-4">
           {% for employee in employees %}
           <div class="employee-block" data-employee-id="{{ employee.id }}">
-            <span class="employee-name">{{ employee.name }}</span> <!-- Wrap the name -->
-            <span class="drop-counter">0</span> <!-- Counter stays as is -->
+            <span class="employee-name">{{ employee.name }} {{ employee.surname }}</span>
+            <span class="drop-counter">0</span>
           </div>
-        {% endfor %}
+          {% endfor %}
         </div>
       </div>
     </div>
   </div>
   </div>
 </body>
-       {% endblock %}
+{% endblock %}

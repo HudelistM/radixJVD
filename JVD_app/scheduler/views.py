@@ -78,50 +78,62 @@ def schedule_view(request):
     return render(request, 'scheduler/schedule_grid.html', context)
 
 # New view function to serve schedule data as JSON
+@require_http_methods(["GET"])
 def api_schedule_data(request):
-    schedule_entries = ScheduleEntry.objects.all().select_related('shift_type').prefetch_related('employees')
+    # Extract query parameters for week start and end dates
+    week_start = request.GET.get('week_start')
+    week_end = request.GET.get('week_end')
+    
+    # Parse the dates from strings to datetime objects
+    week_start_date = datetime.strptime(week_start, '%Y-%m-%d').date() if week_start else None
+    week_end_date = datetime.strptime(week_end, '%Y-%m-%d').date() if week_end else None
+    
+    if not week_start_date or not week_end_date:
+        return JsonResponse({'error': 'Invalid or missing date parameters'}, status=400)
+    
+    schedule_entries = ScheduleEntry.objects.filter(
+        date__range=[week_start_date, week_end_date]
+    ).select_related('shift_type').prefetch_related('employees')
+    
     schedule_list = []
-
     for entry in schedule_entries:
         schedule_list.append({
             "date": entry.date.strftime('%Y-%m-%d'),
             "shift_type_id": entry.shift_type.id,
             "employees": list(entry.employees.values('id', 'name'))
         })
+    
     return JsonResponse(schedule_list, safe=False)
+
 
 
 @csrf_exempt
 @require_http_methods(["POST"])
 def update_schedule(request):
-    data = json.loads(request.body)
-    action = request.GET.get('action', 'add')  # Get the action ('add' or 'move') # Do not default to 'add'  # Changed to get action from the request body
+    # Parse request body
+    data = json.loads(request.body.decode('utf-8'))
+    action = data.get('action')
     employee_id = data.get('employeeId')
     shift_type_id = data.get('shiftTypeId')
     date_str = data.get('date')
-    date = datetime.strptime(date_str, '%Y-%m-%d').date()
+    original_shift_type_id = data.get('originalShiftTypeId')
+    original_date_str = data.get('originalDate')
 
-    if not all([employee_id, shift_type_id, date]):
-        return JsonResponse({'error': 'Missing data'}, status=400)
-
-    print(f"Received action: {action}")
-    print(request.body)
-    
-    if not action:
-        return JsonResponse({'error': 'Action parameter is missing'}, status=400)
-    
     try:
-        employee = Employee.objects.get(id=employee_id)
-        shift_type = ShiftType.objects.get(id=shift_type_id)
-         
-        if action == 'move':
-            ScheduleEntry.objects.filter(date=date, employees=employee).exclude(shift_type=shift_type).delete()
+        employee = Employee.objects.get(pk=employee_id)
+        shift_type = ShiftType.objects.get(pk=shift_type_id)
+        date = datetime.strptime(date_str, '%Y-%m-%d').date()
         
+        # Handle moving the employee
+        if action == 'move' and original_shift_type_id and original_date_str:
+            original_shift_type = ShiftType.objects.get(pk=original_shift_type_id)
+            original_date = datetime.strptime(original_date_str, '%Y-%m-%d').date()
+            ScheduleEntry.objects.filter(date=original_date, shift_type=original_shift_type, employees=employee).delete()
+
         schedule_entry, created = ScheduleEntry.objects.get_or_create(date=date, shift_type=shift_type)
-        if not schedule_entry.employees.filter(id=employee.id).exists():
+        if not schedule_entry.employees.filter(pk=employee.pk).exists():
             schedule_entry.employees.add(employee)
-            created = True # Considered created for this logic
-        
+
         return JsonResponse({'status': 'success', 'created': created, 'action': action})
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)
