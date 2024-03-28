@@ -24,7 +24,7 @@
                         {% with schedule_entry=schedule_data|get_item:day_str|get_item:shift_type.id %}
                           {% if schedule_entry %}
                             {% for employee in schedule_entry.employees.all %}
-                              <div class="employee-block" data-employee-id="{{ employee.id }}">
+                            <div class="employee-block group-{{ employee.group }}" data-employee-id="{{ employee.id }}" data-group="{{ employee.group }}">
                                 <span class="employee-name">{{ employee.name }} {{ employee.surname }}</span>
                               </div>
                             {% endfor %}

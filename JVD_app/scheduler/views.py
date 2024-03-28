@@ -100,7 +100,7 @@ def api_schedule_data(request):
         schedule_list.append({
             "date": entry.date.strftime('%Y-%m-%d'),
             "shift_type_id": entry.shift_type.id,
-            "employees": list(entry.employees.values('id', 'name'))
+            "employees": list(entry.employees.values('id', 'name', 'surname', 'group'))
         })
     
     return JsonResponse(schedule_list, safe=False)

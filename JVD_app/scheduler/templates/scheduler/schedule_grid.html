@@ -38,7 +38,7 @@
         <!-- ... -->
         <div id="employees-list" class="draggable-elements p-4">
           {% for employee in employees %}
-          <div class="employee-block" data-employee-id="{{ employee.id }}">
+          <div class="employee-block group-{{ employee.group }}" data-employee-id="{{ employee.id }}" data-group="{{ employee.group }}">
             <span class="employee-name">{{ employee.name }} {{ employee.surname }}</span>
             <span class="drop-counter">0</span>
           </div>

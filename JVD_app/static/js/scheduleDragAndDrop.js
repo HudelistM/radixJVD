@@ -46,6 +46,12 @@ function initDragAndDrop() {
       if (source === employeeList) {
         let clonedEl = el.cloneNode(true);
         clonedEl.classList.add('hide-counter');
+        const group = el.getAttribute('data-group');
+        clonedEl.classList.add(`group-${group}`); // Apply group class to cloned element
+        // Make sure to include the surname when setting the text content
+        const employeeName = el.getAttribute('data-employee-name');
+        const employeeSurname = el.getAttribute('data-employee-surname');
+        clonedEl.textContent = `${employeeName} ${employeeSurname}`;
         target.appendChild(clonedEl);
         drake.containers.push(clonedEl);
       } else {
@@ -175,6 +181,6 @@ function createEmployeeBlock(employee) {
     div.className = `employee-block group-${employee.group}`;
     div.setAttribute('data-employee-id', employee.id);
     div.setAttribute('data-group', employee.group);
-    div.textContent = `${employee.name} ${employee.surname}`; // Make sure both are defined in the data you pass
+    div.textContent = `${employee.name} ${employee.surname}`;
     return div;
-  }
+}
