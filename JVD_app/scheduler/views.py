@@ -1,12 +1,13 @@
 
 from django.shortcuts import render, redirect
-from .forms import UserRegisterForm
+from .forms import UserRegisterForm, EmployeeForm
 from django.contrib.auth import login
 from datetime import date, timedelta, datetime
 from .models import ScheduleEntry, ShiftType, Employee
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
+from django.contrib import messages
 import json
 from django.core import serializers
 from django.http import HttpResponse
@@ -38,6 +39,38 @@ def register(request):
 def get_week_dates(start_date):
     # start_date is assumed to be a Monday
     return [start_date + timedelta(days=i) for i in range(7)]
+
+def radnici(request):
+    
+    employees = Employee.objects.all()
+
+    if request.method == 'POST':
+        form = UserRegisterForm(request.POST)
+        if form.is_valid():  
+            user = form.save()
+            login(request, user) 
+            return redirect('landingPage')  
+    else:
+        form = UserRegisterForm()
+    context = {
+        'form': form,
+        'employees': employees,
+    }
+    return render(request, 'scheduler/radnici.html', context)
+
+
+def add_employee(request):
+    if request.method == 'POST':
+        form = EmployeeForm(request.POST)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Radnik je uspješno dodan!')
+            return redirect('radnici') 
+    else:
+        form = EmployeeForm()
+    
+    return render(request, 'scheduler/radnici.html', {'form': form})
+
 
 def schedule_view(request):
     # Default start_date to the current week's Monday if no parameter is passed
