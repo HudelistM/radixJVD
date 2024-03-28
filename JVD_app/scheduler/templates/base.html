@@ -1,16 +1,17 @@
 <!DOCTYPE html>
 <html lang="en">
-
-<head>
-  {% load static %}
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Simple Navbar</title>
-  <link href="{% static 'css/output.css' %}" rel="stylesheet">
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/dragula/3.7.3/dragula.min.css" />
-  <script src="{% static 'js/baseHamburger.js' %}"></script>
-</head>
-
+  <head>
+    {% load static %}
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Simple Navbar</title>
+    <link href="{% static 'css/output.css' %}" rel="stylesheet" />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/dragula/3.7.3/dragula.min.css"
+    />
+    <script src="{% static 'js/baseHamburger.js' %}"></script>
+  </head>
 
   <nav class="bg-beige shadow sticky top-0 z-50">
     <div class="mx-auto border">
@@ -18,42 +19,64 @@
         <!-- Logo-->
         <div class="flex items-center">
           <a href="#" class="flex px-3">
-            <svg class="h-6 w-6 mr-2 text-orange-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
-              stroke-width="1.5" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round"
-                d="M15.362 5.214A8.252 8.252 0 0 1 12 21 8.25 8.25 0 0 1 6.038 7.047 8.287 8.287 0 0 0 9 9.601a8.983 8.983 0 0 1 3.361-6.867 8.21 8.21 0 0 0 3 2.48Z" />
-              <path stroke-linecap="round" stroke-linejoin="round"
-                d="M12 18a3.75 3.75 0 0 0 .495-7.468 5.99 5.99 0 0 0-1.925 3.547 5.975 5.975 0 0 1-2.133-1.001A3.75 3.75 0 0 0 12 18Z" />
+            <svg
+              class="h-6 w-6 mr-2 text-orange-500"
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke-width="1.5"
+              stroke="currentColor"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                d="M15.362 5.214A8.252 8.252 0 0 1 12 21 8.25 8.25 0 0 1 6.038 7.047 8.287 8.287 0 0 0 9 9.601a8.983 8.983 0 0 1 3.361-6.867 8.21 8.21 0 0 0 3 2.48Z"
+              />
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                d="M12 18a3.75 3.75 0 0 0 .495-7.468 5.99 5.99 0 0 0-1.925 3.547 5.975 5.975 0 0 1-2.133-1.001A3.75 3.75 0 0 0 12 18Z"
+              />
             </svg>
             <span class="bold">JVP Durdevac</span>
           </a>
         </div>
         <!-- Search Bar -->
-        <div class="flex items-center">
-          Search Bar
-        </div>
+        <div class="flex items-center">Search Bar</div>
         <!-- Acc management -->
         <div class="hidden md:flex px-3 items-center space-x-1">
           {% if user.is_authenticated %}
-            <span>Welcome, {{ user.username }}!</span>
-            <form action="{% url 'logout' %}" method="post">
-              {% csrf_token %}
-              <input type="hidden" name="next" value="{{ request.path }}">
-              <button type="submit" class="py-5 px-3">Logout</button>
-            </form>
+          <span>Welcome, {{ user.username }}!</span>
+          <form action="{% url 'logout' %}" method="post">
+            {% csrf_token %}
+            <input type="hidden" name="next" value="{{ request.path }}" />
+            <button type="submit" class="py-5 px-3">Logout</button>
+          </form>
           {% else %}
-            <a href="{% url 'login' %}" class="py-5 px-3">Prijava</a>
-            <a href="{% url 'register' %}"
-              class="py-5 px-3 bg-white hover:bg-red-400 text-yellow-900 rounded transition duration-300">Registracija</a>
+          <a href="{% url 'login' %}" class="py-5 px-3">Prijava</a>
+          <a
+            href="{% url 'register' %}"
+            class="py-5 px-3 bg-white hover:bg-red-400 text-yellow-900 rounded transition duration-300"
+            >Registracija</a
+          >
           {% endif %}
         </div>
         <!-- Mobile hamburger menu button -->
         <div class="md:hidden flex px-3 items-center">
           <button class="mobile-menu-button">
-            <svg class="w-6 h-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
-              stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round"
-                d="M3.75 5.25h16.5m-16.5 4.5h16.5m-16.5 4.5h16.5m-16.5 4.5h16.5" />
+            <svg
+              class="w-6 h-6"
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke-width="1.5"
+              stroke="currentColor"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                d="M3.75 5.25h16.5m-16.5 4.5h16.5m-16.5 4.5h16.5m-16.5 4.5h16.5"
+              />
             </svg>
           </button>
         </div>
@@ -62,69 +85,123 @@
     <!-- Mobile menu -->
     <div class="mobile-menu hidden">
       {% if user.is_authenticated %}
-        <span class="block py-2 px-4 text-sm">Welcome, {{ user.username }}!</span>
-        <form action="{% url 'logout' %}" method="post" class="block py-2 px-4 text-sm hover:bg-gray-300">
-          {% csrf_token %}
-          <input type="hidden" name="next" value="{{ request.path }}">
-          <button type="submit">Logout</button>
-        </form>
+      <span class="block py-2 px-4 text-sm">Welcome, {{ user.username }}!</span>
+      <form
+        action="{% url 'logout' %}"
+        method="post"
+        class="block py-2 px-4 text-sm hover:bg-gray-300"
+      >
+        {% csrf_token %}
+        <input type="hidden" name="next" value="{{ request.path }}" />
+        <button type="submit">Logout</button>
+      </form>
       {% else %}
-        <a href="{% url 'login' %}" class="block py-2 px-4 test-sm hover:bg-gray-300">Prijava</a>
-        <a href="{% url 'register' %}" class="block py-2 px-4 test-sm hover:bg-gray-300">Registracija</a>
+      <a
+        href="{% url 'login' %}"
+        class="block py-2 px-4 test-sm hover:bg-gray-300"
+        >Prijava</a
+      >
+      <a
+        href="{% url 'register' %}"
+        class="block py-2 px-4 test-sm hover:bg-gray-300"
+        >Registracija</a
+      >
       {% endif %}
     </div>
   </nav>
-<body class="relative">
-  <div class="flex">
-    <div class="h-screen w-60 bg-beige shadow rounded-br-md rounded-tr-lg p-6 antialiased">
-      <!-- Sidebar -->
-      <ul class="mt-4">
-        <li>
-          <a href="#" class="flex items-center gap-2 p-2 text-black rounded-md hover:bg-gray-700">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
-              stroke="currentColor" class="w-6 h-6">
-              <path stroke-linecap="round" stroke-linejoin="round"
-                d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z" />
-            </svg>
-            Radnici
-          </a>
-        </li>
-        <li>
-          <a href="{% url 'schedule_view' %}" class="flex items-center gap-2 rounded-md px-3 py-2 text-black hover:bg-gray-700">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
-              stroke="currentColor" class="w-6 h-6">
-              <path stroke-linecap="round" stroke-linejoin="round"
-                d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5m-9-6h.008v.008H12v-.008ZM12 15h.008v.008H12V15Zm0 2.25h.008v.008H12v-.008ZM9.75 15h.008v.008H9.75V15Zm0 2.25h.008v.008H9.75v-.008ZM7.5 15h.008v.008H7.5V15Zm0 2.25h.008v.008H7.5v-.008Zm6.75-4.5h.008v.008h-.008v-.008Zm0 2.25h.008v.008h-.008V15Zm0 2.25h.008v.008h-.008v-.008Zm2.25-4.5h.008v.008H16.5v-.008Zm0 2.25h.008v.008H16.5V15Z" />
-            </svg>
-            Raspored
-          </a>
-        </li>
-        <li>
-          <a href="#" class="flex items-center gap-2 rounded-md px-3 py-2 text-black hover:bg-gray-700">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
-              stroke="currentColor" class="w-6 h-6">
-              <path stroke-linecap="round" stroke-linejoin="round"
-                d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
-            </svg>
-            Dokumenti
-          </a>
-        </li>
-      </ul>
+  <body class="relative">
+    <div class="flex">
+      <div
+        class="h-screen w-60 bg-beige shadow rounded-br-md rounded-tr-lg p-6 antialiased"
+      >
+        <!-- Sidebar -->
+        <ul class="mt-4">
+          <li>
+            <a
+              href="{% url 'radnici' %}"
+              class="flex items-center gap-2 p-2 text-black rounded-md hover:bg-gray-700"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke-width="1.5"
+                stroke="currentColor"
+                class="w-6 h-6"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z"
+                />
+              </svg>
+              Radnici
+            </a>
+          </li>
+          <li>
+            <a
+              href="{% url 'schedule_view' %}"
+              class="flex items-center gap-2 rounded-md px-3 py-2 text-black hover:bg-gray-700"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke-width="1.5"
+                stroke="currentColor"
+                class="w-6 h-6"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5m-9-6h.008v.008H12v-.008ZM12 15h.008v.008H12V15Zm0 2.25h.008v.008H12v-.008ZM9.75 15h.008v.008H9.75V15Zm0 2.25h.008v.008H9.75v-.008ZM7.5 15h.008v.008H7.5V15Zm0 2.25h.008v.008H7.5v-.008Zm6.75-4.5h.008v.008h-.008v-.008Zm0 2.25h.008v.008h-.008V15Zm0 2.25h.008v.008h-.008v-.008Zm2.25-4.5h.008v.008H16.5v-.008Zm0 2.25h.008v.008H16.5V15Z"
+                />
+              </svg>
+              Raspored
+            </a>
+          </li>
+          <li>
+            <a
+              href="#"
+              class="flex items-center gap-2 rounded-md px-3 py-2 text-black hover:bg-gray-700"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke-width="1.5"
+                stroke="currentColor"
+                class="w-6 h-6"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z"
+                />
+              </svg>
+              Dokumenti
+            </a>
+          </li>
+        </ul>
+      </div>
+      <main class="main-content flex-1 px-10 py-5">
+        {% block content %}
+        <!-- This block will be overridden by other templates that extend base.html -->
+        {% endblock %}
+      </main>
     </div>
-    <main class="main-content flex-1 px-10 py-5">
-      {% block content %}
-      <!-- This block will be overridden by other templates that extend base.html -->
-      {% endblock %}
-    </main>
-  </div>
 
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.30.1/moment.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/moment-timezone/0.5.45/moment-timezone-with-data.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/dragula/3.7.3/dragula.min.js" integrity="sha512-NgXVRE+Mxxf647SqmbB9wPS5SEpWiLFp5G7ItUNFi+GVUyQeP+7w4vnKtc2O/Dm74TpTFKXNjakd40pfSKNulg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
-  
-  <script src="{% static 'js/scheduleNavigation.js' %}"></script>
-  <script src="{% static 'js/scheduleDragAndDrop.js' %}"></script>
-</body>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.30.1/moment.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/moment-timezone/0.5.45/moment-timezone-with-data.min.js"></script>
+    <script
+      src="https://cdnjs.cloudflare.com/ajax/libs/dragula/3.7.3/dragula.min.js"
+      integrity="sha512-NgXVRE+Mxxf647SqmbB9wPS5SEpWiLFp5G7ItUNFi+GVUyQeP+7w4vnKtc2O/Dm74TpTFKXNjakd40pfSKNulg=="
+      crossorigin="anonymous"
+      referrerpolicy="no-referrer"
+    ></script>
 
-
+    <script src="{% static 'js/scheduleNavigation.js' %}"></script>
+    <script src="{% static 'js/scheduleDragAndDrop.js' %}"></script>
+    <script src="{% static 'js/radnici.js' %}"></script>
+  </body>
 </html>
