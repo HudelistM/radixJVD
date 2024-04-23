@@ -40,8 +40,10 @@ function initDragAndDrop() {
       const shiftTypeId = target.getAttribute('data-shift-type-id');
       const date = target.getAttribute('data-date');
       let action = source !== employeeList && source.classList.contains('dropzone') ? 'move' : 'add';
+      let originalDate = action === 'move' ? source.getAttribute('data-date') : date;
+      let originalShiftTypeId = action === 'move' ? source.getAttribute('data-shift-type-id') : shiftTypeId;
   
-      updateSchedule(employeeId, shiftTypeId, date, action);
+      updateSchedule(employeeId, shiftTypeId, date, action, originalDate, originalShiftTypeId);
   
       if (source === employeeList) {
         let clonedEl = el.cloneNode(true);
@@ -74,19 +76,26 @@ function initDragAndDrop() {
         shadows.forEach(shadow => shadow.remove());
     });
 
-    function updateSchedule(employeeId, shiftTypeId, date, action) {
+    function updateSchedule(employeeId, shiftTypeId, date, action, originalDate, originalShiftTypeId) {
         const url = `/update_schedule/`;
-        // Construct the request body including the action parameter
-        const requestBody = JSON.stringify({ employeeId, shiftTypeId, date, action });
-        console.log("Sending request with body:", requestBody); // Logging the request body to debug
+        const requestBody = JSON.stringify({
+            employeeId: employeeId,
+            shiftTypeId: shiftTypeId,
+            date: date,
+            action: action,
+            originalDate: originalDate,
+            originalShiftTypeId: originalShiftTypeId
+        });
+    
+        console.log("Sending request with body:", requestBody);  // Debugging log
     
         fetch(url, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'X-CSRFToken': getCookie('csrftoken'), // Ensure CSRF token is correctly fetched and included
+                'X-CSRFToken': getCookie('csrftoken'), // Ensuring CSRF token is correctly fetched and included
             },
-            body: requestBody, // Use the requestBody that includes the action
+            body: requestBody,
         })
         .then(response => {
             if (!response.ok) {
@@ -95,10 +104,10 @@ function initDragAndDrop() {
             return response.json();
         })
         .then(data => {
-            console.log('Success:', data); // Logging the success response
+            console.log('Success:', data); // Log success for debugging
         })
         .catch(error => {
-            console.error('Error:', error); // Logging any error that occurs during the fetch operation
+            console.error('Error:', error); // Log any errors
         });
     }
 

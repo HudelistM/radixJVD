@@ -1,21 +1,34 @@
-
-from django.shortcuts import render, redirect
+#Django db importovi
+from django.db import transaction
+from django.db.models import Q
+from django.db.models import F
+#Import formi i modela
 from .forms import UserRegisterForm, EmployeeForm
-from django.contrib.auth import login
-from datetime import date, timedelta, datetime
 from .models import ScheduleEntry, ShiftType, Employee
-from django.http import JsonResponse
+#Django.views importovi
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
+#Django http importovi
+from django.http import JsonResponse
+from django.http import HttpResponse
+
+from django.shortcuts import render, redirect
+from django.contrib.auth import login
+from datetime import date, timedelta, datetime
 from django.contrib import messages
 import json
 from django.core import serializers
-from django.http import HttpResponse
 from django.template.loader import render_to_string
+from django.shortcuts import get_object_or_404
+
 #Excel importovi
 import openpyxl
 from openpyxl.styles import Alignment, Border, Side, Font, PatternFill
 from openpyxl.utils import get_column_letter
+from openpyxl.cell.text import InlineFont
+from openpyxl.cell.rich_text import CellRichText,TextBlock
+from openpyxl.worksheet.page import PageMargins
+
 from django.http import HttpResponse
 from io import BytesIO
 from openpyxl.styles import Color
@@ -23,6 +36,9 @@ from openpyxl.workbook import Workbook
 from openpyxl.styles.differential import DifferentialStyle
 from openpyxl.formatting.rule import Rule
 
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 def is_ajax(request):
@@ -149,144 +165,134 @@ def api_schedule_data(request):
 @csrf_exempt
 @require_http_methods(["POST"])
 def update_schedule(request):
-    # Parse request body
-    data = json.loads(request.body.decode('utf-8'))
-    action = data.get('action')
-    employee_id = data.get('employeeId')
-    shift_type_id = data.get('shiftTypeId')
-    date_str = data.get('date')
-    original_shift_type_id = data.get('originalShiftTypeId')
-    original_date_str = data.get('originalDate')
-
     try:
-        employee = Employee.objects.get(pk=employee_id)
-        shift_type = ShiftType.objects.get(pk=shift_type_id)
-        date = datetime.strptime(date_str, '%Y-%m-%d').date()
-        
-        # Handle moving the employee
-        if action == 'move' and original_shift_type_id and original_date_str:
-            original_shift_type = ShiftType.objects.get(pk=original_shift_type_id)
-            original_date = datetime.strptime(original_date_str, '%Y-%m-%d').date()
-            ScheduleEntry.objects.filter(date=original_date, shift_type=original_shift_type, employees=employee).delete()
+        data = json.loads(request.body.decode('utf-8'))
+        logger.debug(f"Received data for update: {data}")
 
-        schedule_entry, created = ScheduleEntry.objects.get_or_create(date=date, shift_type=shift_type)
-        if not schedule_entry.employees.filter(pk=employee.pk).exists():
-            schedule_entry.employees.add(employee)
+        if any(key not in data for key in ['action', 'employeeId', 'shiftTypeId', 'date']):
+            return JsonResponse({'error': 'Missing required parameters'}, status=400)
 
-        return JsonResponse({'status': 'success', 'created': created, 'action': action})
+        date = datetime.strptime(data['date'], '%Y-%m-%d').date()
+        employee = get_object_or_404(Employee, pk=data['employeeId'])
+        shift_type = get_object_or_404(ShiftType, pk=data['shiftTypeId'])
+
+        if data['action'] == 'move':
+            original_date = datetime.strptime(data['originalDate'], '%Y-%m-%d').date()
+            original_shift_type = get_object_or_404(ShiftType, pk=data['originalShiftTypeId'])
+
+            with transaction.atomic():
+                # First, remove the employee from the original entry
+                original_entry = ScheduleEntry.objects.filter(date=original_date, shift_type=original_shift_type).first()
+                if original_entry:
+                    original_entry.employees.remove(employee)
+                    # If no employees are left in the schedule entry, delete it
+                    if not original_entry.employees.exists():
+                        original_entry.delete()
+
+                # Next, add the employee to the new entry, creating if necessary
+                schedule_entry, created = ScheduleEntry.objects.get_or_create(
+                    date=date, shift_type=shift_type
+                )
+                schedule_entry.employees.add(employee)
+
+        elif data['action'] == 'add':
+            with transaction.atomic():
+                schedule_entry, created = ScheduleEntry.objects.get_or_create(
+                    date=date, shift_type=shift_type
+                )
+                schedule_entry.employees.add(employee)
+
+        return JsonResponse({'status': 'success', 'message': 'Schedule updated', 'created': created}, status=200)
+
     except Exception as e:
-        return JsonResponse({'error': str(e)}, status=500)
+        logger.error(f"Exception in update_schedule: {str(e)}")
+        return JsonResponse({'error': 'Server error', 'details': str(e)}, status=500)
 
-    # Define color coding for employee groups as font colors
-    font_colors = {
+GROUP_COLOR_MAPPING = {
+    1: 'FFFF0000',  # Red
+    2: 'FF00FF00',  # Green
+    3: 'FF0000FF',  # Blue
+    4: 'FFFFFF00',  # Yellow
+    # Add more mappings as needed
+}
 
-    }
-
-
-def as_text(value):
-    if value is None:
-        return ""
-    return str(value)
-
-def create_schedule_excel(week_dates, schedule_data, created_by):
-    # Initialize Excel workbook and worksheet
+def create_schedule_excel(week_dates, schedule_data, user_name,group_color_mapping):
+    # Initialize workbook and sheet
     wb = Workbook()
     ws = wb.active
 
-    day_names = ['Pon', 'Uto', 'Sri', 'Čet', 'Pet', 'Sub', 'Ned']
-
-    # Set page setup to A4 and orientation to landscape
+    # Set page setup for A4 size and orientation
     ws.page_setup.paperSize = ws.PAPERSIZE_A4
     ws.page_setup.orientation = ws.ORIENTATION_LANDSCAPE
+    ws.page_margins = PageMargins(left=0.7, right=0.7, top=0.75, bottom=0.75, header=0.3, footer=0.3)
 
-    # Define styles for headers and cells
-    bold_font = Font(bold=True, size=11)
-    normal_font = Font(size=10)
-    alignment_center = Alignment(horizontal="center", vertical="center")
-    thin_border = Border(bottom=Side(style='thin'))
 
-    ws.merge_cells('A1:C1')
-    ws['A1'] = "JAVNA VATROGASNA POSTROJBA ĐURĐEVAC"
-    ws.merge_cells('D1:F1')
-    ws['D1'] = "Raspored smjena - Tjedni 2024"
-    ws.merge_cells('G1:I1')
-    ws['G1'] = f"Izradio: {created_by}"
+    # Set titles and headers
+    title = f"Weekly Schedule Prepared by {user_name}"
+    ws.append([title])
+    ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=7)
+    ws.append(["Date"] + [d.strftime("%A %d/%m/%Y") for d in week_dates])  # Headers for dates
 
-    # Freeze panes below headers
-    ws.freeze_panes = "A4"
-    
-    # Styling headers
-    header_font = Font(size=11, bold=True)
-    for cell in ws["1:1"]:
+    # Define some styles for formatting
+    header_font = Font(bold=True)
+    header_fill = PatternFill("solid", fgColor="00FFFF00")
+    for cell in ws[2]:
         cell.font = header_font
-        cell.alignment = Alignment(horizontal="center", vertical="center")
+        cell.fill = header_fill
 
-    # Add column headers
-    ws.append(['Date'] + [shift_type.name for shift_type in ShiftType.objects.all()])
-    for cell in ws[3]:
-        cell.font = bold_font
-        cell.alignment = alignment_center
-        cell.border = thin_border
+    def create_rich_text_cell(entries, group_color_mapping):
+        rich_text = CellRichText()
+        for index, entry in enumerate(entries):
+            # Get employee name and group color
+            name = f"{entry.name} {entry.surname}"
+            group = int(entry.group)
+            group_color = group_color_mapping.get(group, '00000000')  # Default to black if group not in mapping
 
-    # Define colors for days and groups
-    fill_saturday = PatternFill(start_color='CCFFCC', end_color='CCFFCC', fill_type='solid')
-    fill_sunday = PatternFill(start_color='FFFF99', end_color='FFFF99', fill_type='solid')
-    group_colors = {
-        '1': "FF0000",  # Red color for Group 1
-        '2': "0000FF",  # Blue color for Group 2
-        '3': "008000",  # Green color for Group 3
-        '4': "FFA500",  # Orange color for Group 4
-    }
+            # If the group has a specific color, create TextBlock with InlineFont
+            if group_color != '00000000':  
+                font = Font(color=group_color, bold=True, size=12)
+                inline_font = InlineFont(font)
+                text_block = TextBlock(inline_font, name)
+                rich_text.append(text_block)
+            else:  
+                # If no specific color, append the name as plain text
+                rich_text.append(name)
 
-    # Populate the Excel file with data
-    for day in week_dates:
-        day_data = [day.strftime('%Y-%m-%d')]
-        for shift in ShiftType.objects.all():
-            entry = schedule_data.get(day.strftime('%Y-%m-%d'), {}).get(shift.id)
+            # Add a newline if there are more entries to add
+            if index < len(entries) - 1:
+                rich_text.append("\n")
+
+        return rich_text
+
+    # Populate the schedule
+    for shift_type in ShiftType.objects.all():
+        row = [shift_type.name]
+        for date in week_dates:
+            day_key = date.strftime('%Y-%m-%d')
+            entry = schedule_data[day_key].get(shift_type.id)
             if entry:
-                entry_data = ', '.join([f"{e.name} {e.surname} ({e.group})" for e in entry.employees.all()])
-                day_data.append(entry_data)
+                # Get employees for the schedule entry
+                employees = entry.employees.all() if hasattr(entry, 'employees') else []
+                cell_value = create_rich_text_cell(employees,group_color_mapping)
+                row.append(cell_value)
             else:
-                day_data.append('-')
-        ws.append(day_data)
-
-    # Style the data rows and apply group colors
-    for row in ws.iter_rows(min_row=4, max_row=ws.max_row):
-        for cell in row:
-            cell.font = normal_font
-            if cell.col_idx == 1:
-                cell.alignment = alignment_center
-                cell.border = thin_border
-            else:
-                # Apply group colors to employee names
-                text_parts = cell.value.split(', ') if cell.value else []
-                for part in text_parts:
-                    group = part.split(' ')[-1].strip('()')
-                    cell.font = Font(color=group_colors.get(group, '000000'))
+                row.append(None)
+        ws.append(row)
 
     # Adjust column widths
     for column_cells in ws.columns:
-        length = max(len(as_text(cell.value)) for cell in column_cells)
+        length = max(len(as_text(cell.value)) for cell in column_cells if cell.value)
         ws.column_dimensions[get_column_letter(column_cells[0].column)].width = length
 
-    # Apply colors to weekend rows
-    for row in ws.iter_rows(min_row=4, max_row=ws.max_row):
-        if row[0].value:
-            day_of_week = datetime.strptime(row[0].value, '%Y-%m-%d').weekday()
-            if day_of_week == 5:
-                for cell in row:
-                    cell.fill = fill_saturday
-            elif day_of_week == 6:
-                for cell in row:
-                    cell.fill = fill_sunday
-
     return wb
-
 
 def as_text(value):
     if value is None:
         return ""
+    if isinstance(value, CellRichText):
+        return str(value)
     return str(value)
+
 
 def download_schedule(request):
     # Generate dates for the desired schedule week
@@ -318,7 +324,7 @@ def download_schedule(request):
 
     # Create an Excel workbook with the schedule data
     current_user_name = request.user.get_full_name() if request.user.is_authenticated else "Unknown User"
-    wb = create_schedule_excel(week_dates, schedule_data, current_user_name)
+    wb = create_schedule_excel(week_dates, schedule_data, current_user_name,GROUP_COLOR_MAPPING)
 
     # Save the workbook to a BytesIO object
     excel_file = BytesIO()
@@ -328,5 +334,5 @@ def download_schedule(request):
     # Construct response
     response = HttpResponse(content=excel_file.read())
     response['Content-Type'] = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-    response['Content-Disposition'] = 'attachment; filename=weekly_schedule.xlsx'
+    response['Content-Disposition'] = 'attachment; filename=Raspored.xlsx'
     return response
