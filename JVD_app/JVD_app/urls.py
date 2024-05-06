@@ -16,5 +16,5 @@ urlpatterns = [
     path('update_schedule/', views.update_schedule, name='update_schedule'),
     path('api/schedule/', api_schedule_data, name='api_schedule_data'),
     path('download_schedule/', download_schedule, name='download_schedule'),
-
+    path('documents/', views.documents_view, name='documents_view'),
 ]
