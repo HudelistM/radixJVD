@@ -2,78 +2,102 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Add this to give a visual cue for dragging */
+/* Dragging visual cue - Ensuring rounded corners and correct padding */
 .gu-mirror {
-    @apply block w-full max-w-xs p-2 m-0 bg-gray-200 border border-gray-300 rounded-md shadow-lg;
-    /* This class is added by dragula to the element being dragged */
-  }
+    @apply block p-2 m-0 border border-gray-300 rounded-md shadow-lg;
+}
 
-  .schedule-container {
+/* Schedule container styles */
+.schedule-container {
     @apply overflow-auto;
-  }
-  
-  /* Ensure this is processed correctly by your build step */
-  .draggable-elements .employee-block {
-    @apply inline-block p-2 bg-gray-200 cursor-pointer border border-gray-300 rounded-md;
-    /* This will allow the blocks to only be as wide as their content plus padding */
-  }
-  
-  .employee-block.group-1 {
+}
+
+/* Employee block styles - Apply padding and rounded corners */
+.draggable-elements .employee-block, .dropzone .employee-block, .employee-block {
+  @apply inline-block p-2 border border-gray-300 rounded-md truncate;
+}
+
+
+/* Group color coding */
+.employee-block.group-1 {
     @apply bg-blue-100 text-blue-800;
-  }
-  
-  .employee-block.group-2 {
+}
+.employee-block.group-2 {
     @apply bg-green-100 text-green-800;
-  }
-  
-  .employee-block.group-3 {
+}
+.employee-block.group-3 {
     @apply bg-red-100 text-red-800;
-  }
+}
 
-  .hide-counter {
+/* Hide counter */
+.hide-counter {
     display: none;
-  }
-  
-
-  .dropzone {
-    @apply bg-white p-2 rounded  border-gray-400 min-h-[50px];
-  }
-
-  .draggable-elements .employee-block .employee-name {
-    @apply text-sm; /* or any other size */
-  }
-
-  .dropzone .employee-block {
-    @apply bg-gray-200 border border-blue-400 text-gray-700 py-1 rounded-md;
-  }
-
-  .draggable-elements .employee-block .drop-counter {
-    @apply top-0 right-0 bg-blue-500 text-blue-800 text-sm px-2 py-1 rounded;
-}
-  .hide-counter .drop-counter {
-    @apply hidden; 
 }
 
-  .schedule-table th,
-  .schedule-table td {
+/* Dropzone styling */
+.dropzone {
+    @apply bg-white p-2 rounded border-gray-400 min-h-[50px];
+}
+
+/* Employee name styling */
+.draggable-elements .employee-block .employee-name {
+    @apply text-sm;
+}
+
+/* Schedule table styles */
+.schedule-table th,
+.schedule-table td {
     padding: 8px;
     text-align: center;
-    min-width: 120px; /* Adjust as necessary */
-    max-width: 200px; /* Adjust as necessary */
+    min-width: 120px;
+    max-width: 200px;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-  }
-
-  .schedule-table .employee-name {
+}
+.schedule-table .employee-name {
     display: block;
     max-width: 100%;
     overflow: hidden;
     text-overflow: ellipsis;
-  }
-
-  .schedule-table .employee-block {
+}
+.schedule-table .employee-block {
     display: flex;
     align-items: center;
     justify-content: center;
-  }
+}
+
+/* Sidebar animations */
+#sidebar {
+  transition: width 0.3s;
+}
+
+.main-content {
+  transition: margin-left 0.3s;
+}
+
+/* Collapsed sidebar */
+.collapsed {
+  width: 5rem; /* Adjusted width to ensure icons are visible */
+}
+
+.collapsed ul li a {
+  justify-content: center;
+}
+
+.collapsed ul li a .sidebar-text {
+  @apply hidden; /* Hide text */
+}
+
+.collapsed ul li a svg {
+  width: 24px; /* Adjust icon width as needed */
+  height: 24px; /* Adjust icon height as needed */
+}
+
+/* Allow content to expand fully when sidebar is collapsed */
+.expanded {
+  margin-left: 5rem !important;
+}
+.no-transition {
+  transition: none !important;
+}

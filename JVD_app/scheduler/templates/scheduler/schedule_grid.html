@@ -2,48 +2,58 @@
 {% load custom_templates %}
 
 {% block content %}
-
-
 <body>
-  <div class="schedule-navigation flex justify-between items-center my-4">
-    <div class="flex gap-4">
-      <button id="prev-week" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
-        Previous Week
-      </button>
-      <select id="month-select" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5">
-        <!--{% for month in months %}
-        <option value="{{ month.number }}">{{ month.name }}</option>
-        {% endfor %}-->
-      </select>
-      <button id="next-week" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
-        Next Week
-      </button>
-    </div>
-  </div>
   <div class="container mx-auto px-4 sm:px-8">
     <div class="py-8">
-      <div class="flex flex-row mb-1 sm:mb-0 justify-between w-full">
-        <h2 class="text-2xl leading-tight">
-          Tjedni raspored
-        </h2>
+      <!-- Title -->
+      <h2 class="text-2xl text-center mb-4">
+        Tjedni raspored
+      </h2>
+
+      <!-- Navigation Controls -->
+      <div class="flex flex-row justify-between w-full mb-4">
+        <!-- Left arrow button -->
+        <button id="prev-week" class="bg-transparent text-gray-700 hover:text-black">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-8 h-8">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
+          </svg>
+        </button>
+
+        <!-- Month select dropdown -->
+        <select id="month-select" class="text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 p-2.5">
+          <!--{% for month in months %}
+          <option value="{{ month.number }}">{{ month.name }}</option>
+          {% endfor %}-->
+        </select>
+
+        <!-- Right arrow button -->
+        <button id="next-week" class="bg-transparent text-gray-700 hover:text-black">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-8 h-8">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
+          </svg>
+        </button>
       </div>
+
+      <!-- Schedule Grid -->
       <div class="container mx-auto p-4 sm:p-8">
         <div class="shadow overflow-hidden rounded border-b border-gray-200">
           <div id="schedule-grid" data-week-start="{{ week_dates.0|date:'Y-m-d' }}">
             {% include 'scheduler/scheduler_grid_inner.html' %}
           </div>
-        <!-- ... -->
-        <div id="employees-list" class="draggable-elements p-4">
-          {% for employee in employees %}
-          <div class="employee-block group-{{ employee.group }}" data-employee-id="{{ employee.id }}" data-group="{{ employee.group }}">
-            <span class="employee-name">{{ employee.name }} {{ employee.surname }}</span>
-            <span class="drop-counter">0</span>
+          
+          <!-- Employees List -->
+          <div id="employees-list" class="draggable-elements p-4">
+            {% for employee in employees %}
+              {% if employee.group != '1' %}
+              <div class="employee-block group-{{ employee.group }}" data-employee-id="{{ employee.id }}" data-group="{{ employee.group }}">
+                  <span class="employee-name">{{ employee.surname }} {{ employee.name|slice:":1" }}.</span>
+              </div>
+              {% endif %}
+            {% endfor %}
           </div>
-          {% endfor %}
         </div>
       </div>
     </div>
-  </div>
   </div>
 </body>
 {% endblock %}

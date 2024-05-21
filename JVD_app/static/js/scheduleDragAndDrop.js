@@ -29,9 +29,12 @@ function initDragAndDrop() {
         removeOnSpill: false,
         revertOnSpill: true,
         mirrorContainer: document.body,
+        moves: (el) => {
+            el.classList.add('employee-block'); // Ensure the mirror gets the correct class
+            return true;
+          }
     });
   
-    const employeeAssignments = new Map();
   
     drake.on('drop', function(el, target, source, sibling) {
       if (target === employeeList) return;
@@ -47,7 +50,6 @@ function initDragAndDrop() {
   
       if (source === employeeList) {
         let clonedEl = el.cloneNode(true);
-        clonedEl.classList.add('hide-counter');
         const group = el.getAttribute('data-group');
         clonedEl.classList.add(`group-${group}`); // Apply group class to cloned element
         // Make sure to include the surname when setting the text content
@@ -60,10 +62,6 @@ function initDragAndDrop() {
         target.appendChild(el);
       }
   
-      let count = employeeAssignments.get(employeeId) || 0;
-      count = action === 'add' ? ++count : count;
-      employeeAssignments.set(employeeId, count);
-      updateEmployeeBlockCounter(employeeId, count);
     });
   
     drake.on('drag', function(el) {
@@ -111,43 +109,20 @@ function initDragAndDrop() {
         });
     }
 
-
-  function getCookie(name) {
-      let cookieValue = null;
-      if (document.cookie && document.cookie !== '') {
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
           const cookies = document.cookie.split(';');
           for (let i = 0; i < cookies.length; i++) {
-              const cookie = cookies[i].trim();
-              if (cookie.substring(0, name.length + 1) === (name + '='))
-                  cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-                  break;
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+              cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+              break;
+            }
           }
-      }
-      return cookieValue;
-  }
-
-  function incrementAssignments(employeeId) {
-      let count = employeeAssignments.get(employeeId) || 0;
-      count++;
-      employeeAssignments.set(employeeId, count);
-      return count;
-  }
-
-  function updateEmployeeBlockCounter(employeeId, count) {
-    const employeeBlock = employeeList.querySelector(`[data-employee-id="${employeeId}"]`);
-    if (!employeeBlock) {
-        console.error(`Employee block not found for employeeId: ${employeeId}`);
-        return; // Exit the function if no employeeBlock is found
-    }
-    let counter = employeeBlock.querySelector('.drop-counter');
-    if (!counter) {
-        counter = document.createElement('span');
-        counter.className = 'drop-counter';
-        employeeBlock.appendChild(counter);
-    }
-    counter.innerText = count; // Display count without "/7"
-}
-
+        }
+        return cookieValue;
+      }  
 
   // New functionality to fetch and render schedule on page load
   fetchAndRenderSchedule();
@@ -186,11 +161,103 @@ function fetchAndRenderSchedule() {
 
 
 function createEmployeeBlock(employee) {
+    if (employee.group === '1') return null;
+
     const div = document.createElement('div');
     div.className = `employee-block group-${employee.group}`;
     div.setAttribute('data-employee-id', employee.id);
     div.setAttribute('data-group', employee.group);
-    div.textContent = `${employee.name} ${employee.surname}`;
+
+    // Add employee name
+    const nameSpan = document.createElement('span');
+    const nameInitial = employee.name.charAt(0).toUpperCase();
+    nameSpan.className = 'employee-name';
+    nameSpan.textContent = `${employee.surname} ${nameInitial}.`;
+    div.appendChild(nameSpan);
+
+    // Add cog button
+    const cogButton = document.createElement('button');
+    cogButton.className = 'cog-btn';
+    cogButton.title = 'Enter Overtime Hours';
+    cogButton.innerHTML = '⚙️';
+    cogButton.onclick = () => openOvertimeModal(employee.id, new Date().toISOString().split('T')[0]);
+    div.appendChild(cogButton);
+
     return div;
 }
+
+function openOvertimeModal(employeeId, date) {
+    // Log to ensure the function is called
+    console.log(`Opening modal for Employee ID: ${employeeId}, Date: ${date}`);
+    
+    // Check if element IDs are correctly identified
+    let employeeInput = document.getElementById('employee-id');
+    let dateInput = document.getElementById('work-date');
+    let modal = document.getElementById('overtime-dialog');
+    
+    // Ensure these elements exist
+    if (!employeeInput || !dateInput || !modal) {
+        console.error('Could not find one or more elements needed to open the modal.');
+        return;
+    }
+    
+    // Populate input fields
+    employeeInput.value = employeeId;
+    dateInput.value = date;
+    
+    // Remove hidden class to display the modal
+    modal.classList.remove('hidden');
+}
+
+// Check if the modal is hidden or shown
+function closeOvertimeDialog() {
+    console.log('Closing modal');
+    document.getElementById('overtime-dialog').classList.add('hidden');
+}
+  
+  function submitOvertime() {
+    const employeeId = document.getElementById('employee-id').value;
+    const date = document.getElementById('work-date').value;
+    const overtimeHours = parseFloat(document.getElementById('overtime-hours').value);
+  
+    fetch('/update_overtime_hours/', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': getCookie('csrftoken')
+      },
+      body: JSON.stringify({
+        employee_id: employeeId,
+        date: date,
+        overtime_hours: overtimeHours
+      })
+    })
+      .then(response => response.json())
+      .then(data => {
+        if (data.status === 'success') {
+          closeOvertimeDialog();
+          // Optionally, update the UI to reflect the new hours
+        } else {
+          console.error(data.error);
+        }
+      })
+      .catch(error => {
+        console.error('Error:', error);
+      });
+  }
+
+  function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+      const cookies = document.cookie.split(';');
+      for (let i = 0; i < cookies.length; i++) {
+        const cookie = cookies[i].trim();
+        if (cookie.substring(0, name.length + 1) === (name + '=')) {
+          cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+          break;
+        }
+      }
+    }
+    return cookieValue;
+  }  
 

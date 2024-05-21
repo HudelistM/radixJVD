@@ -18,18 +18,36 @@ class WorkDay(models.Model):
     holiday_hours = models.FloatField(default=0, blank=True, null=True)
     vacation_hours = models.FloatField(default=0, blank=True, null=True)
     sick_leave_hours = models.FloatField(default=0, blank=True, null=True)
-    night_shift_hours = models.FloatField(default=0, blank=True, null=True)
     saturday_hours = models.FloatField(default=0, blank=True, null=True)
     sunday_hours = models.FloatField(default=0, blank=True, null=True)
-    free_days = models.IntegerField(default=0, blank=True, null=True)
-    extra_hours = models.FloatField(default=0, blank=True, null=True)  
-    vacation_days = models.IntegerField(default=0, blank=True, null=True)
+    on_call_hours = models.FloatField(default=0, blank=True, null=True)
+    overtime_hours = models.FloatField(default=0, blank=True, null=True)
+    
+    def __str__(self):
+        return f"{self.employee.name} {self.employee.surname} - {self.date}"
 
+    
 class ShiftType(models.Model):
+    SHIFT_CATEGORIES = [
+        ('1.smjena', '1.Smjena'),
+        ('1.smjena priprema', '1.Smjena Priprema'),
+        ('2.smjena', '2.Smjena'),
+        ('2.smjena priprema', '2.Smjena Priprema'),
+        ('ina 1.smjena', 'INA 1.Smjena'),
+        ('ina 2.smjena', 'INA 2.Smjena'),
+        ('janaf 1.smjena', 'JANAF 1.Smjena'),
+        ('janaf 2.smjena', 'JANAF 2.Smjena'),
+        ('godišnji odmor', 'Godišnji Odmor'),
+        ('bolovanje', 'Bolovanje'),
+        ('slobodan dan','Slobodan Dan'),
+    ]
+
     name = models.CharField(max_length=100)
+    category = models.CharField(max_length=20, choices=SHIFT_CATEGORIES,default='1.smjena')
     start_time = models.TimeField(null=True, blank=True)
     end_time = models.TimeField(null=True, blank=True)
-    description = models.TextField(blank=True)
+    is_on_call = models.BooleanField(default=False)
+    is_regular = models.BooleanField(default=True)
 
     def __str__(self):
         return self.name
