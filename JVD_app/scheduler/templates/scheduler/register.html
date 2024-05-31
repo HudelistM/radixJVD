@@ -5,13 +5,13 @@
 <div class="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
   <div class="max-w-md w-full space-y-8">
     <div>
-      <h2 class="mt-6 text-center text-3xl font-extrabold text-gray-900">Register</h2>
+      <h2 class="mt-6 text-center text-3xl font-extrabold text-gray-900">Registracija</h2>
     </div>
     <form class="mt-8 space-y-6" method="post">
       {% csrf_token %}
       <div class="rounded-md shadow-sm -space-y-px">
         <div class="mb-4">
-          <label for="username" class="block text-sm font-medium text-gray-700">Username</label>
+          <label for="username" class="block text-sm font-medium text-gray-700">Korisničko ime</label>
           {{ form.username|add_class:"appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm" }}
         </div>
         <div class="mb-4">
@@ -19,11 +19,11 @@
           {{ form.email|add_class:"appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm" }}
         </div>
         <div class="mb-4">
-          <label for="password1" class="block text-sm font-medium text-gray-700">Password</label>
+          <label for="password1" class="block text-sm font-medium text-gray-700">Lozinka</label>
           {{ form.password1|add_class:"appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm" }}
         </div>
         <div class="mb-4">
-          <label for="password2" class="block text-sm font-medium text-gray-700">Confirm Password</label>
+          <label for="password2" class="block text-sm font-medium text-gray-700">Potvrdi lozinku</label>
           {{ form.password2|add_class:"appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm" }}
         </div>
       </div>
@@ -32,7 +32,7 @@
       </div>
     </form>
     <p class="mt-2 text-center text-sm text-gray-600">
-      Already have an account? <a href="{% url 'login' %}" class="font-medium text-indigo-600 hover:text-indigo-500">Login here</a>
+      Već imate račun? <a href="{% url 'login' %}" class="font-medium text-indigo-600 hover:text-indigo-500">Prijavite se ovdje</a>
     </p>
   </div>
 </div>
