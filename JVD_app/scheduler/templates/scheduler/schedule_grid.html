@@ -46,7 +46,7 @@
             {% for employee in employees %}
               {% if employee.group != '1' %}
               <div class="employee-block group-{{ employee.group }}" data-employee-id="{{ employee.id }}" data-group="{{ employee.group }}">
-                  <span class="employee-name">{{ employee.surname }} {{ employee.name|slice:":1" }}.</span>
+                  <span class="employee-name">{{ employee.surname }} {{ employee.name|slice:":1" }}. ({{ employee.group}})</span>
               </div>
               {% endif %}
             {% endfor %}
