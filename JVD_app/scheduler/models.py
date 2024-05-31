@@ -30,7 +30,6 @@ class WorkDay(models.Model):
 class ShiftType(models.Model):
     SHIFT_CATEGORIES = [
         ('1.smjena', '1.Smjena'),
-        ('1.smjena priprema', '1.Smjena Priprema'),
         ('2.smjena', '2.Smjena'),
         ('2.smjena priprema', '2.Smjena Priprema'),
         ('ina 1.smjena', 'INA 1.Smjena'),

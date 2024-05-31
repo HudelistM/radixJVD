@@ -46,6 +46,8 @@ from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, 
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import mm,cm
 
+from django.db.models.signals import post_save, post_delete
+from django.dispatch import receiver
 
 from django.http import HttpResponse
 from io import BytesIO
@@ -184,21 +186,50 @@ def api_schedule_data(request):
     return JsonResponse(schedule_list, safe=False)
 
 @require_http_methods(["POST"])
+@transaction.atomic
 def update_overtime_hours(request):
     try:
         data = json.loads(request.body.decode('utf-8'))
         employee_id = data.get('employee_id')
         date = data.get('date')
-        overtime_hours = float(data.get('overtime_hours', 0))
+        overtime_hours = float(data.get('overtime_hours', 0) or 0)
+        day_hours = float(data.get('day_hours', 0) or 0)
+        night_hours = float(data.get('night_hours', 0) or 0)
 
-        work_day = WorkDay.objects.get(employee_id=employee_id, date=date)
-        work_day.on_call_hours = max(work_day.on_call_hours - overtime_hours, 0)
-        work_day.overtime_hours += overtime_hours
+        work_day, created = WorkDay.objects.get_or_create(employee_id=employee_id, date=date)
+        
+        if 'overtime_hours' in data:
+            work_day.on_call_hours = max(work_day.on_call_hours - overtime_hours, 0)
+            work_day.overtime_hours += overtime_hours
+        if 'day_hours' in data:
+            work_day.day_hours += day_hours
+        if 'night_hours' in data:
+            work_day.night_hours += night_hours
+
         work_day.save()
 
         return JsonResponse({'status': 'success'})
+    except WorkDay.DoesNotExist:
+        return JsonResponse({'error': 'WorkDay matching query does not exist.'}, status=400)
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=400)
+
+@require_http_methods(["GET"])
+def get_workday_data(request):
+    employee_id = request.GET.get('employee_id')
+    date = request.GET.get('date')
+    
+    try:
+        work_day = WorkDay.objects.get(employee_id=employee_id, date=date)
+        data = {
+            'day_hours': work_day.day_hours,
+            'night_hours': work_day.night_hours,
+            'overtime_hours': work_day.overtime_hours,
+            'on_call_hours': work_day.on_call_hours,
+        }
+        return JsonResponse({'status': 'success', 'data': data})
+    except WorkDay.DoesNotExist:
+        return JsonResponse({'error': 'WorkDay matching query does not exist.'}, status=400)
 
 def calculate_shift_hours(employee, shift_type, date):
     shift_hours = {
@@ -206,8 +237,21 @@ def calculate_shift_hours(employee, shift_type, date):
         'saturday': 0, 'sunday': 0,
         'sick_leave': 0, 'on_call': 0
     }
+        # Handle regular 2nd shift separately to add on-call hours
+    if shift_type.category == '2.smjena':
+        shift_hours['day'] += 3
+        shift_hours['night'] += 2
+        shift_hours['on_call'] += 12  # Adding 12 hours of on-call duty only for regular 2nd shift
 
-    if shift_type.category in ['2.smjena', 'ina 2.smjena', 'janaf 2.smjena']:
+        next_day = date + timedelta(days=1)
+        next_day_entry, _ = WorkDay.objects.get_or_create(
+            employee=employee, date=next_day
+        )
+        next_day_entry.night_hours = max(next_day_entry.night_hours, 6)
+        next_day_entry.day_hours = max(next_day_entry.day_hours, 1)
+        next_day_entry.save()
+
+    elif shift_type.category in ['ina 2.smjena', 'janaf 2.smjena']:
         shift_hours['day'] += 3
         shift_hours['night'] += 2
 
@@ -232,8 +276,6 @@ def calculate_shift_hours(employee, shift_type, date):
     else:
         if shift_type.category == '1.smjena':
             shift_hours['day'] += 12
-        elif shift_type.category == '1.smjena priprema':
-            shift_hours['on_call'] += 12
         elif shift_type.category in ['ina 1.smjena', 'janaf 1.smjena']:
             shift_hours['day'] += 12
         elif shift_type.category == 'godišnji odmor':
@@ -304,6 +346,8 @@ def update_schedule(request):
     except Exception as e:
         logger.error(f"Exception in update_schedule: {str(e)}")
         return JsonResponse({'error': 'Server error', 'details': str(e)}, status=500)
+
+
 
 # Croatian day names to use for mapping
 day_names_cro = {
@@ -436,16 +480,17 @@ def download_schedule(request):
 @login_required
 def download_sihterica(request):
     # Define Croatian month names
+    # Define Croatian month names (for reference or elsewhere if needed)
     croatian_months = {
-        'January': 'Siječanj', 'February': 'Veljača', 'March': 'Ožujak',
-        'April': 'Travanj', 'May': 'Svibanj', 'June': 'Lipanj',
-        'July': 'Srpanj', 'August': 'Kolovoz', 'September': 'Rujan',
-        'October': 'Listopad', 'November': 'Studeni', 'December': 'Prosinac'
+        1: 'Siječanj', 2: 'Veljača', 3: 'Ožujak',
+        4: 'Travanj', 5: 'Svibanj', 6: 'Lipanj',
+        7: 'Srpanj', 8: 'Kolovoz', 9: 'Rujan',
+        10: 'Listopad', 11: 'Studeni', 12: 'Prosinac'
     }
 
     # Extract current month and year for the title
     current_date = date.today()
-    current_month = croatian_months[current_date.strftime("%B")]
+    current_month = current_date.month  # Use the month's numeric value directly
     current_year = current_date.year
 
     output = BytesIO()
@@ -460,6 +505,9 @@ def download_sihterica(request):
     hours_format = workbook.add_format({'align': 'center'})
     saturday_format = workbook.add_format({'align': 'center', 'bg_color': '#CCFFCC'})  # Green
     sunday_format = workbook.add_format({'align': 'center', 'bg_color': '#FFFF99'})  # Yellow
+    gray_format = workbook.add_format({'bg_color': '#E0E0E0', 'align': 'center'})  # Gray
+    white_format = workbook.add_format({'bg_color': '#FFFFFF', 'align': 'center'})  # White
+
 
     # Group text color formats
     group_text_formats = {
@@ -475,7 +523,8 @@ def download_sihterica(request):
     worksheet.set_column(34, 43, 10) # Aggregate columns
 
     # Add title row
-    title = f"Evidencija prisutnosti na radu za mjesec {current_month} {current_year}"
+    month_name = croatian_months[current_month]
+    title = f"Evidencija prisutnosti na radu za mjesec {month_name} {current_year}"
     worksheet.merge_range(0, 0, 0, 42, title, title_format)
 
     # Add headers
@@ -548,6 +597,148 @@ def download_sihterica(request):
         worksheet.merge_range(row_idx, 42, row_idx + 1, 42, total_sick_leave_hours, total_format)
 
         row_idx += 2
+    # First aggregate table start
+    agg_start_row = row_idx + 2
+
+    # Title for the first aggregate table
+    worksheet.merge_range(agg_start_row, 0, agg_start_row, 15, f'Ukupni sati za {month_name} {current_year}', title_format)
+    agg_start_row += 1
+
+    # Add first aggregate table headers
+    aggregate_headers = ['Ime i Prezime', 'rb.', 'Fond sati', 'Red. rad', 'Drž. pr. i bla.', 'Godišnji o.', 'Bolovanje', 'Noćni rad',
+                         'Rad sub.', 'Rad. ned.', 'Slobodan dan', 'Turnus', 'Priprema', 'Prek.rad', 'Prek. USLUGA', 'Prek. Višak Fonda']
+
+    small_header_format = workbook.add_format({'align': 'center', 'bold': True, 'font_size': 7, 'bg_color': '#f0f0f0'})
+
+    for col_num, header in enumerate(aggregate_headers):
+        worksheet.write(agg_start_row, col_num, header, small_header_format)
+
+    agg_start_row += 1
+
+    # Add first aggregate data
+    for idx, employee in enumerate(employees):
+        work_days = WorkDay.objects.filter(employee=employee, date__year=current_year, date__month=current_date.month)
+        total_vacation_hours = sum(day.vacation_hours for day in work_days)
+        total_sick_leave_hours = sum(day.sick_leave_hours for day in work_days)
+        total_holiday_hours = sum(day.holiday_hours for day in work_days)
+        total_day_hours = sum(day.day_hours for day in work_days)
+        total_night_hours = sum(day.night_hours for day in work_days)
+        total_saturday_hours = sum(day.saturday_hours for day in work_days)
+        total_sunday_hours = sum(day.sunday_hours for day in work_days)
+        total_on_call_hours = sum(day.on_call_hours for day in work_days)
+        total_overtime_hours = sum(day.overtime_hours for day in work_days)
+        total_free_days_hours = 0  # Replace placeholder with actual calculation
+
+        row_format = gray_format if idx % 2 == 0 else white_format
+        
+        worksheet.write(agg_start_row, 0, f"{employee.name} {employee.surname}", row_format)
+        worksheet.write(agg_start_row, 1, idx + 1, row_format)
+        worksheet.write(agg_start_row, 2, hour_fond, row_format)
+        worksheet.write(agg_start_row, 3, total_day_hours, row_format)
+        worksheet.write(agg_start_row, 4, total_holiday_hours, row_format)
+        worksheet.write(agg_start_row, 5, total_vacation_hours, row_format)
+        worksheet.write(agg_start_row, 6, total_sick_leave_hours, row_format)
+        worksheet.write(agg_start_row, 7, total_night_hours, row_format)
+        worksheet.write(agg_start_row, 8, total_saturday_hours, row_format)
+        worksheet.write(agg_start_row, 9, total_sunday_hours, row_format)
+        worksheet.write(agg_start_row, 10, total_free_days_hours, row_format)
+        worksheet.write(agg_start_row, 11, total_day_hours + total_night_hours, row_format)
+        worksheet.write(agg_start_row, 12, total_on_call_hours, row_format)
+        worksheet.write(agg_start_row, 13, total_overtime_hours, row_format)
+        worksheet.write(agg_start_row, 14, 0, row_format)  # Prek. USLUGA
+        worksheet.write(agg_start_row, 15, 0, row_format)  # Prek. Višak Fonda
+
+        agg_start_row += 1
+
+    # Add "Ukupno" row for the first aggregate table
+    first_data_row = agg_start_row - len(employees)  # This should be the row index where your first data entry starts
+    last_data_row = agg_start_row  # The row before the aggregate starts
+
+    # Add "Ukupno" title in the first column of the total row
+    worksheet.write(last_data_row , 0, 'Ukupno', header_format)
+
+    # Writing sum formulas directly below the last data entry
+    for col_num in range(2, 16):  # Adjusting the column range for sum
+        column_letter_value = column_letter(col_num + 1)  # Using a helper function for Excel column letters
+        formula_range = f"{column_letter_value}{first_data_row}:{column_letter_value}{last_data_row}"
+        worksheet.write_formula(last_data_row, col_num, f"=SUM({formula_range})", total_format)
+
+    total_preparation_overtime=0
+
+    # Calculate the number of weeks in the current month
+    first_day_of_month = date(current_year, current_month, 1)
+    last_day_of_month = date(current_year, current_month, calendar.monthrange(current_year, current_month)[1])
+    weeks = {((first_day_of_month + timedelta(days=x)).isocalendar()[1]) for x in range((last_day_of_month - first_day_of_month).days + 1)}
+
+    # Start the second aggregate table
+    agg_start_row += 2  # Space after the first aggregate table
+    title_row = agg_start_row
+    worksheet.merge_range(title_row, 0, title_row, 9, 'BROJ SATI PRIPREME', title_format)
+    agg_start_row += 1
+
+    # Calculate the number of weeks in the current month
+    first_day_of_month = date(current_year, current_month, 1)
+    last_day_of_month = date(current_year, current_month, calendar.monthrange(current_year, current_month)[1])
+    weeks = {((first_day_of_month + timedelta(days=x)).isocalendar()[1]) for x in range((last_day_of_month - first_day_of_month).days + 1)}
+    num_weeks = len(weeks)
+
+    # Ensure not to overlap with already merged title
+    worksheet.write(agg_start_row, 0, 'Ime i Prezime', header_format)
+    worksheet.write(agg_start_row, 1, 'rb.', header_format)
+
+    # Merging the week columns under one header 'Prip. iz rasporeda'
+    start_week_col = 2
+    end_week_col = start_week_col + num_weeks - 1  # Determine the last column index for weeks
+
+    # Correct merging by ensuring it does not overlap with previous merges
+    if title_row == agg_start_row:
+        worksheet.merge_range(title_row + 1, start_week_col, title_row + 1, end_week_col, 'Prip. iz rasporeda', header_format)
+    else:
+        worksheet.merge_range(agg_start_row, start_week_col, agg_start_row, end_week_col, 'Prip. iz rasporeda', header_format)
+
+    # Headers for other columns
+    worksheet.write(agg_start_row, end_week_col + 1, 'Priprema um. prekovremene', header_format)
+    worksheet.write(agg_start_row, end_week_col + 2, 'Ukupno', header_format)
+
+    agg_start_row += 1  # Move to the next row to start adding weekly data
+
+    for idx, employee in enumerate(employees):
+        worksheet.write(agg_start_row, 0, f"{employee.name} {employee.surname}", row_format)
+        worksheet.write(agg_start_row, 1, idx + 1, row_format)
+        col_offset = 2  # Starting column for week data
+        total_weekly_hours = 0  # Reset for each employee
+        for week_num in sorted(weeks):
+            week_days = [first_day_of_month + timedelta(days=x) for x in range((last_day_of_month - first_day_of_month).days + 1) if (first_day_of_month + timedelta(days=x)).isocalendar()[1] == week_num]
+            weekly_hours = sum(WorkDay.objects.filter(employee=employee, date__in=week_days).values_list('on_call_hours', flat=True))
+            worksheet.write(agg_start_row, col_offset, weekly_hours, row_format)
+            total_weekly_hours += weekly_hours  # Accumulate for total
+            col_offset += 1
+        # Correct the total column position
+        worksheet.write(agg_start_row, col_offset, total_preparation_overtime, row_format)
+        worksheet.write(agg_start_row, col_offset + 1, total_weekly_hours, row_format)  # Corrected position for total
+
+        agg_start_row += 1
+    
+        # Adding a new table for surplus-deficit hours
+    worksheet.merge_range(agg_start_row, 0, agg_start_row, 4, 'EVIDENCIJA VIŠKA-MANJKA SATI', title_format)
+    agg_start_row += 1
+    sub_headers = ['PREZIME I IME', 'rb', 'Fond sati s 31.01.2024.', 'VELJAČA', '29.02.2024.']
+    worksheet.write_row(agg_start_row, 0, sub_headers, header_format)
+
+    # Simulating filling this new table
+    agg_start_row += 1
+    for idx, employee in enumerate(Employee.objects.all()):
+        january_hours = 160  # Placeholder for actual calculation
+        february_hours = 150  # Placeholder for actual calculation
+        worksheet.write(agg_start_row, 1, f"{employee.surname} {employee.name}", bold_format)
+        worksheet.write(agg_start_row, 0, idx + 1, bold_format)
+        worksheet.write(agg_start_row, 2, january_hours, hours_format)
+        worksheet.write(agg_start_row, 3, february_hours, hours_format)
+        worksheet.write(agg_start_row, 4, february_hours, hours_format)  # Placeholder, adjust as needed
+        agg_start_row += 1
+
+    workbook.close()
+    output.seek(0)
 
     workbook.close()
     output.seek(0)
@@ -555,6 +746,32 @@ def download_sihterica(request):
     response = HttpResponse(content=output.read(), content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
     response['Content-Disposition'] = 'attachment; filename="sihterica.xlsx"'
     return response
+
+def column_letter(index):
+    """ Convert column index to Excel-style column letter (1-indexed). """
+    index -= 1  # Adjusting from 1-indexed to 0-indexed
+    result = ''
+    while index >= 0:
+        result = chr(index % 26 + 65) + result
+        index = index // 26 - 1
+    return result
+
+# Utility to calculate workable days in a month
+def workable_days(year, month):
+    num_days = calendar.monthrange(year, month)[1]
+    return sum(1 for day in range(1, num_days + 1)
+               if (date(year, month, day).weekday() < 5))  # Assuming Saturday (5) and Sunday (6) are non-work days
+
+# Calculate surplus hours
+def calculate_surplus_hours(employee, year, month):
+    start_date = date(year, month, 1)
+    end_date = date(year, month, calendar.monthrange(year, month)[1])
+    work_days = WorkDay.objects.filter(employee=employee, date__range=(start_date, end_date))
+    # Assuming a standard of 8 hours per workable day
+    expected_hours = workable_days(year, month) * 8
+    worked_hours = work_days.aggregate(total_hours=Sum('day_hours'))['total_hours'] or 0
+    return worked_hours - expected_hours
+
 
 def generate_schedule_pdf(file_path, week_dates, shift_types, schedule_data, author_name):
     document = SimpleDocTemplate(file_path, pagesize=landscape(A4), rightMargin=5 * mm, leftMargin=5 * mm, topMargin=5 * mm, bottomMargin=5 * mm)

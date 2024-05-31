@@ -5,14 +5,24 @@
   <div class="overflow-x-auto">
     <div id="overtime-dialog" class="hidden fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
       <div class="bg-white p-6 rounded-lg shadow-lg w-1/3 max-w-lg">
-        <h2 class="text-xl mb-4">Unesite prekovremene sate</h2>
-        <input type="number" id="overtime-hours" class="border p-2 mb-4 w-full">
-        <input type="hidden" id="employee-id">
-        <input type="hidden" id="work-date">
-        <button onclick="submitOvertime()" class="bg-blue-500 hover:bg-blue-700 text-white py-2 px-4 rounded">U redu</button>
-        <button onclick="closeOvertimeDialog()" class="bg-red-500 hover:bg-red-700 text-white py-2 px-4 rounded ml-2">Odustani</button>
+          <h2 class="text-xl mb-4">Unesite prekovremene sate</h2>
+          
+          <label for="overtime-hours">Prekovremeni sati</label>
+          <input type="number" id="overtime-hours" class="border p-2 mb-4 w-full" value="">
+          
+          <label for="day-hours">Dnevni sati</label>
+          <input type="number" id="day-hours" class="border p-2 mb-4 w-full" value="">
+          
+          <label for="night-hours">Noćni sati</label>
+          <input type="number" id="night-hours" class="border p-2 mb-4 w-full" value="">
+          
+          <input type="hidden" id="employee-id">
+          <input type="hidden" id="work-date">
+          
+          <button onclick="submitOvertime()" class="bg-blue-500 hover:bg-blue-700 text-white py-2 px-4 rounded">U redu</button>
+          <button onclick="closeOvertimeDialog()" class="bg-red-500 hover:bg-red-700 text-white py-2 px-4 rounded ml-2">Odustani</button>
       </div>
-    </div>
+  </div>
     <table class="min-w-full leading-normal table-fixed schedule-table">
         <thead class="bg-gray-100">
         <tr>

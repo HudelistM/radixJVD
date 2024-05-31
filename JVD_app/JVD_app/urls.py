@@ -20,4 +20,5 @@ urlpatterns = [
     path('documents/', views.documents_view, name='documents_view'),
     path('update_overtime_hours/', views.update_overtime_hours, name='update_overtime_hours'),
     path('download_schedule_pdf/', download_schedule_pdf, name='download_schedule_pdf'),
+    path('get_workday_data/', views.get_workday_data, name='get_workday_data'),
 ]

@@ -64,6 +64,8 @@ function initDragAndDrop() {
   
     });
   
+  
+  
     drake.on('drag', function(el) {
         console.log('Dragging', el);
     });
@@ -149,7 +151,7 @@ function fetchAndRenderSchedule() {
                 return; // Skip this iteration if the cell doesn't exist
             }
             employees.forEach(employee => {
-                const employeeBlock = createEmployeeBlock(employee);
+                const employeeBlock = createEmployeeBlock(employee,date);
                 cell.appendChild(employeeBlock);
             });
         });
@@ -160,104 +162,132 @@ function fetchAndRenderSchedule() {
 
 
 
-function createEmployeeBlock(employee) {
-    if (employee.group === '1') return null;
+function createEmployeeBlock(employee, date) {
+  if (employee.group === '1') return null;
 
-    const div = document.createElement('div');
-    div.className = `employee-block group-${employee.group}`;
-    div.setAttribute('data-employee-id', employee.id);
-    div.setAttribute('data-group', employee.group);
+  const div = document.createElement('div');
+  div.className = `employee-block group-${employee.group}`;
+  div.setAttribute('data-employee-id', employee.id);
+  div.setAttribute('data-group', employee.group);
 
-    // Add employee name
-    const nameSpan = document.createElement('span');
-    const nameInitial = employee.name.charAt(0).toUpperCase();
-    nameSpan.className = 'employee-name';
-    nameSpan.textContent = `${employee.surname} ${nameInitial}.`;
-    div.appendChild(nameSpan);
+  // Add employee name and group
+  const nameSpan = document.createElement('span');
+  const nameInitial = employee.name ? employee.name.charAt(0).toUpperCase() : '';
+  nameSpan.className = 'employee-name';
+  nameSpan.textContent = `${employee.surname} ${nameInitial}. (${employee.group})`;
+  div.appendChild(nameSpan);
 
-    // Add cog button
-    const cogButton = document.createElement('button');
-    cogButton.className = 'cog-btn';
-    cogButton.title = 'Enter Overtime Hours';
-    cogButton.innerHTML = '⚙️';
-    cogButton.onclick = () => openOvertimeModal(employee.id, new Date().toISOString().split('T')[0]);
-    div.appendChild(cogButton);
+  // Add cog button
+  const cogButton = document.createElement('button');
+  cogButton.className = 'cog-btn';
+  cogButton.title = 'Unesite prekovremene sate';
+  cogButton.innerHTML = '⚙️';
+  cogButton.onclick = () => openOvertimeModal(employee.id, date);
+  div.appendChild(cogButton);
 
-    return div;
+  return div;
 }
+
+
 
 function openOvertimeModal(employeeId, date) {
-    // Log to ensure the function is called
-    console.log(`Opening modal for Employee ID: ${employeeId}, Date: ${date}`);
-    
-    // Check if element IDs are correctly identified
-    let employeeInput = document.getElementById('employee-id');
-    let dateInput = document.getElementById('work-date');
-    let modal = document.getElementById('overtime-dialog');
-    
-    // Ensure these elements exist
-    if (!employeeInput || !dateInput || !modal) {
-        console.error('Could not find one or more elements needed to open the modal.');
-        return;
-    }
-    
-    // Populate input fields
-    employeeInput.value = employeeId;
-    dateInput.value = date;
-    
-    // Remove hidden class to display the modal
-    modal.classList.remove('hidden');
+  console.log(`Opening modal for Employee ID: ${employeeId}, Date: ${date}`);
+
+  let employeeInput = document.getElementById('employee-id');
+  let dateInput = document.getElementById('work-date');
+  let modal = document.getElementById('overtime-dialog');
+  
+  if (!employeeInput || !dateInput || !modal) {
+      console.error('Could not find one or more elements needed to open the modal.');
+      return;
+  }
+  
+  employeeInput.value = employeeId;
+  dateInput.value = date;
+  
+  fetch(`/get_workday_data/?employee_id=${employeeId}&date=${date}`)
+  .then(response => response.json())
+  .then(data => {
+      if (data.status === 'success') {
+          document.getElementById('overtime-hours').value = data.data.overtime_hours || 0;
+          document.getElementById('day-hours').value = data.data.day_hours || 0;
+          document.getElementById('night-hours').value = data.data.night_hours || 0;
+      } else {
+          document.getElementById('overtime-hours').value = 0;
+          document.getElementById('day-hours').value = 0;
+          document.getElementById('night-hours').value = 0;
+      }
+      modal.classList.remove('hidden');
+  })
+  .catch(error => {
+      console.error('Error fetching workday data:', error);
+      document.getElementById('overtime-hours').value = 0;
+      document.getElementById('day-hours').value = 0;
+      document.getElementById('night-hours').value = 0;
+      modal.classList.remove('hidden');
+  });
 }
 
-// Check if the modal is hidden or shown
 function closeOvertimeDialog() {
-    console.log('Closing modal');
-    document.getElementById('overtime-dialog').classList.add('hidden');
+  console.log('Closing modal');
+  document.getElementById('overtime-dialog').classList.add('hidden');
 }
+
+function submitOvertime() {
+  const employeeId = document.getElementById('employee-id').value;
+  const date = document.getElementById('work-date').value;
+  const overtimeHours = document.getElementById('overtime-hours').value;
+  const dayHours = document.getElementById('day-hours').value;
+  const nightHours = document.getElementById('night-hours').value;
+
+  let requestData = { employee_id: employeeId, date: date };
   
-  function submitOvertime() {
-    const employeeId = document.getElementById('employee-id').value;
-    const date = document.getElementById('work-date').value;
-    const overtimeHours = parseFloat(document.getElementById('overtime-hours').value);
-  
-    fetch('/update_overtime_hours/', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-CSRFToken': getCookie('csrftoken')
-      },
-      body: JSON.stringify({
-        employee_id: employeeId,
-        date: date,
-        overtime_hours: overtimeHours
-      })
-    })
-      .then(response => response.json())
-      .then(data => {
-        if (data.status === 'success') {
-          closeOvertimeDialog();
-          // Optionally, update the UI to reflect the new hours
-        } else {
-          console.error(data.error);
-        }
-      })
-      .catch(error => {
-        console.error('Error:', error);
-      });
+  if (overtimeHours !== '') {
+      requestData.overtime_hours = parseFloat(overtimeHours);
+  }
+  if (dayHours !== '') {
+      requestData.day_hours = parseFloat(dayHours);
+  }
+  if (nightHours !== '') {
+      requestData.night_hours = parseFloat(nightHours);
   }
 
-  function getCookie(name) {
-    let cookieValue = null;
-    if (document.cookie && document.cookie !== '') {
+  console.log("Submitting overtime with data:", requestData);
+
+  fetch('/update_overtime_hours/', {
+      method: 'POST',
+      headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken': getCookie('csrftoken')
+      },
+      body: JSON.stringify(requestData)
+  })
+  .then(response => response.json())
+  .then(data => {
+      if (data.status === 'success') {
+          closeOvertimeDialog();
+          // Optionally, update the UI to reflect the new hours
+      } else {
+          console.error(data.error);
+      }
+  })
+  .catch(error => {
+      console.error('Error:', error);
+  });
+}
+
+function getCookie(name) {
+  let cookieValue = null;
+  if (document.cookie && document.cookie !== '') {
       const cookies = document.cookie.split(';');
       for (let i = 0; i < cookies.length; i++) {
-        const cookie = cookies[i].trim();
-        if (cookie.substring(0, name.length + 1) === (name + '=')) {
-          cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-          break;
-        }
+          const cookie = cookies[i].trim();
+          if (cookie.substring(0, name.length + 1) === (name + '=')) {
+              cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+              break;
+          }
       }
-    }
-    return cookieValue;
-  }  
+  }
+  return cookieValue;
+}
 
