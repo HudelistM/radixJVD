@@ -24,7 +24,7 @@ SECRET_KEY = 'django-insecure-s2)7)h(bzr7khqb$th@!qcgy08^coq(ts2ypaf4wwwz5$6r!9_
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = False
 
-ALLOWED_HOSTS = ['jvp-djurdjevac.hr','sihta.jvp-djurdjevac.hr','www.jvp-djurdjevac.hr']
+ALLOWED_HOSTS = ['jvp-djurdjevac.hr','sihta.jvp-djurdjevac.hr','www.jvp-djurdjevac.hr','shihta-jvp.logos-it.hr']
 
 LOGIN_REDIRECT_URL = 'landingPage'
 LOGOUT_REDIRECT_URL = 'landingPage'
@@ -82,8 +82,8 @@ WSGI_APPLICATION = 'JVD_app.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
-        'NAME': 'jvp-djur_shihta',
-        'USER': 'jvp-djur_shadm',
+        'NAME': 'logosith_shihtajvp',
+        'USER': 'logosith_shadm',
         'PASSWORD': 'K7J7"AgI(2Dc',
         'HOST': 'localhost',
         'PORT': '3306',
