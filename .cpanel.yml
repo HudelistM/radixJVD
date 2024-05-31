@@ -2,7 +2,7 @@
 deployment:
   tasks:
     - name: Set deployment path
-      command: export DEPLOYPATH=/home/jvp-djur/shihta.jvp-djurdjevac.hr/
+      command: export DEPLOYPATH=/shihta.jvp-djurdjevac.hr/
     - name: Copy .vscode directory
       command: /bin/cp -R .vscode $DEPLOYPATH
     - name: Copy assets directory
