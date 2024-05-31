@@ -15,3 +15,7 @@ DAY_TRANSLATIONS = {
 @register.filter(name='translate_day')
 def translate_day(value):
     return DAY_TRANSLATIONS.get(value[:3], value)
+
+@register.filter(name='add_class')
+def add_class(field, css):
+    return field.as_widget(attrs={"class": css})

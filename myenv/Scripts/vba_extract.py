@@ -1,4 +1,4 @@
-#!E:\Repository\JVD_projekt\JVD_app\myenv\Scripts\python.exe
+#!D:\Repository\JVD_\radixJVD\myenv\Scripts\python.exe
 
 ##############################################################################
 #
