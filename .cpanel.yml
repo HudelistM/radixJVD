@@ -1,0 +1,38 @@
+---
+deployment:
+  tasks:
+    - name: Set deployment path
+      command: export DEPLOYPATH=/shihta.jvp-djurdjevac.hr/
+    - name: Copy .vscode directory
+      command: /bin/cp -R .vscode $DEPLOYPATH
+    - name: Copy assets directory
+      command: /bin/cp -R assets $DEPLOYPATH
+    - name: Copy css directory
+      command: /bin/cp -R css $DEPLOYPATH
+    - name: Copy fonts directory
+      command: /bin/cp -R fonts $DEPLOYPATH
+    - name: Copy img directory
+      command: /bin/cp -R img $DEPLOYPATH
+    - name: Copy js directory
+      command: /bin/cp -R js $DEPLOYPATH
+    - name: Copy index.html
+      command: /bin/cp index.html $DEPLOYPATH
+    - name: Setup virtual environment
+      command: |
+        cd $DEPLOYPATH
+        python3 -m venv venv
+        source venv/bin/activate
+    - name: Install dependencies
+      command: |
+        source $DEPLOYPATH/venv/bin/activate
+        pip install -r $DEPLOYPATH/requirements.txt
+    - name: Run migrations
+      command: |
+        source $DEPLOYPATH/venv/bin/activate
+        python $DEPLOYPATH/manage.py migrate
+    - name: Collect static files
+      command: |
+        source $DEPLOYPATH/venv/bin/activate
+        python $DEPLOYPATH/manage.py collectstatic --noinput
+    - name: Restart application
+      command: touch $DEPLOYPATH/tmp/restart.txt
