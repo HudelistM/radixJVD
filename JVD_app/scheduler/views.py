@@ -2,6 +2,7 @@
 from django.db import transaction
 from django.db.models import Q
 from django.db.models import F
+from django.db.models import Sum
 #Import formi i modela
 from .forms import UserRegisterForm, EmployeeForm
 from .models import ScheduleEntry, ShiftType, Employee, WorkDay, FixedHourFund, Holiday, ExcessHours
@@ -606,23 +607,32 @@ def download_sihterica(request):
         
     #-----------------------Aggregate table for total overview----------------------------
         
-    # First aggregate table start
+    # First aggregate table start (Assuming row_idx is last used row index)
     agg_start_row = row_idx + 2
 
-    # Title for the first aggregate table
+    # Title for the first aggregate table, spanning all relevant columns
     worksheet.merge_range(agg_start_row, 0, agg_start_row, 15, f'Ukupni sati za {month_name} {current_year}', title_format)
     agg_start_row += 1
 
-    # Add first aggregate table headers
-    aggregate_headers = ['Ime i Prezime', 'rb.', 'Fond sati', 'Red. rad', 'Drž. pr. i bla.', 'Godišnji o.', 'Bolovanje', 'Noćni rad',
-                         'Rad sub.', 'Rad. ned.', 'Slobodan dan', 'Turnus', 'Priprema', 'Prek.rad', 'Prek. USLUGA', 'Prek. Višak Fonda']
+    # Define headers for the first aggregate table and merge cells horizontally
+    worksheet.write(agg_start_row, 0, 'Ime i Prezime', header_format)  # Not merged
+    worksheet.write(agg_start_row, 1, 'rb.', header_format)  # Not merged
+    worksheet.merge_range(agg_start_row, 2, agg_start_row, 3, 'Fond sati', header_format)
+    worksheet.merge_range(agg_start_row, 4, agg_start_row, 5, 'Regularni rad', header_format)
+    worksheet.merge_range(agg_start_row, 6, agg_start_row, 7, 'Drž. pr. i bla.', header_format)
+    worksheet.merge_range(agg_start_row, 8, agg_start_row, 9, 'Godišnji o.', header_format)
+    worksheet.merge_range(agg_start_row, 10, agg_start_row, 11, 'Bolovanje', header_format)
+    worksheet.merge_range(agg_start_row, 12, agg_start_row, 13, 'Noćni rad', header_format)
+    worksheet.merge_range(agg_start_row, 14, agg_start_row, 15, 'Rad sub.', header_format)
+    worksheet.merge_range(agg_start_row + 1, 16, agg_start_row + 1, 17, 'Rad. ned.', header_format)
+    worksheet.merge_range(agg_start_row + 1, 18, agg_start_row + 1, 19, 'Slobodan dan', header_format)
+    worksheet.merge_range(agg_start_row + 1, 20, agg_start_row + 1, 21, 'Turnus', header_format)
+    worksheet.merge_range(agg_start_row + 1, 22, agg_start_row + 1, 23, 'Priprema', header_format)
+    worksheet.merge_range(agg_start_row + 1, 24, agg_start_row + 1, 25, 'Prek.rad', header_format)
+    worksheet.merge_range(agg_start_row + 1, 26, agg_start_row + 1, 27, 'Prek. USLUGA', header_format)
+    worksheet.merge_range(agg_start_row + 1, 28, agg_start_row + 1, 29, 'Prek. Višak Fonda', header_format)
 
-    small_header_format = workbook.add_format({'align': 'center', 'bold': True, 'font_size': 7, 'bg_color': '#f0f0f0'})
-
-    for col_num, header in enumerate(aggregate_headers):
-        worksheet.write(agg_start_row, col_num, header, small_header_format)
-
-    agg_start_row += 1
+    agg_start_row += 2  # Adjust to start filling data
 
     # Add first aggregate data
     for idx, employee in enumerate(employees):
@@ -683,7 +693,7 @@ def download_sihterica(request):
     weeks = {((first_day_of_month + timedelta(days=x)).isocalendar()[1]) for x in range((last_day_of_month - first_day_of_month).days + 1)}
 
     # Start the second aggregate table
-    agg_start_row += 2  # Space after the first aggregate table
+    agg_start_row += 3  # Space after the first aggregate table
     title_row = agg_start_row
     worksheet.merge_range(title_row, 0, title_row, 9, 'BROJ SATI PRIPREME', title_format)
     agg_start_row += 1
@@ -769,6 +779,44 @@ def download_sihterica(request):
         worksheet.write(agg_start_row, 4, cumulative_excess_current_month, hours_format)
 
         agg_start_row += 1
+        
+        # Aggregate table for vacation data
+    agg_vacation_start_row = agg_start_row + 2  # Space after the last table
+
+    previous_month_header = f"GO s {last_day_of_previous_month}.{previous_month}.{previous_year}"
+    current_month_header_hours = f"GO sati ({croatian_months[current_month]} {current_year})"
+    current_month_header_days = f"GO dani ({croatian_months[current_month]} {current_year})"
+    previous_month_header = f"GO s {last_day_of_previous_month}.{previous_month}.{previous_year}"
+
+    worksheet.merge_range(agg_vacation_start_row, 0, agg_vacation_start_row, 4, 'EVIDENCIJA GODIŠNJIH ODMORA', title_format)
+    vacation_headers = ['Prezime i ime', previous_month_header, current_month_header_hours, current_month_header_days, previous_month_header]
+    worksheet.write_row(agg_vacation_start_row + 1, 0, vacation_headers, header_format)
+    agg_vacation_start_row += 2
+
+    # Populate the table
+    for idx, employee in enumerate(employees):
+        # Retrieve vacation data from ExcessHours for previous month
+        previous_month = current_month - 1 if current_month > 1 else 12
+        previous_year = current_year if current_month > 1 else current_year - 1
+        previous_vacation_record = ExcessHours.objects.filter(employee=employee, year=previous_year, month=previous_month).first()
+        previous_vacation_hours = previous_vacation_record.vacation_hours_used if previous_vacation_record else 0
+
+        # Current month vacation hours and calculation to days
+        current_vacation_hours = WorkDay.objects.filter(employee=employee, date__year=current_year, date__month=current_month).aggregate(Sum('vacation_hours'))['vacation_hours__sum'] or 0
+        current_vacation_days = current_vacation_hours / 8  # Assuming 8 hours per day for conversion to days
+
+        # Calculate new cumulative vacation hours and convert to days
+        new_cumulative_vacation_hours = previous_vacation_hours + current_vacation_hours
+        new_cumulative_vacation_days = new_cumulative_vacation_hours / 8
+
+        # Write data to the worksheet
+        worksheet.write(agg_vacation_start_row, 0, f"{employee.surname} {employee.name}", white_format)
+        worksheet.write(agg_vacation_start_row, 1, previous_vacation_hours / 8, hours_format)  # Previous month cumulative in days
+        worksheet.write(agg_vacation_start_row, 2, current_vacation_hours, hours_format)
+        worksheet.write(agg_vacation_start_row, 3, current_vacation_days, hours_format)
+        worksheet.write(agg_vacation_start_row, 4, new_cumulative_vacation_days, hours_format)  # New cumulative in days
+
+        agg_vacation_start_row += 1
 
     workbook.close()
     output.seek(0)

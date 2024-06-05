@@ -22,9 +22,9 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = 'django-insecure-s2)7)h(bzr7khqb$th@!qcgy08^coq(ts2ypaf4wwwz5$6r!9_'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = False
+DEBUG = True
 
-ALLOWED_HOSTS = ['jvp-djurdjevac.hr','sihta.jvp-djurdjevac.hr','www.jvp-djurdjevac.hr','shihta-jvp.logos-it.hr']
+ALLOWED_HOSTS = []
 
 LOGIN_REDIRECT_URL = 'landingPage'
 LOGOUT_REDIRECT_URL = 'landingPage'
@@ -81,12 +81,8 @@ WSGI_APPLICATION = 'JVD_app.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.mysql',
-        'NAME': 'logosith_shihtajvp',
-        'USER': 'logosith_shadm',
-        'PASSWORD': 'K7J7"AgI(2Dc',
-        'HOST': 'localhost',
-        'PORT': '3306',
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': BASE_DIR / 'db.sqlite3',
     }
 }
 
