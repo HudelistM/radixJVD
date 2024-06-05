@@ -4,7 +4,7 @@ from django.db.models import Q
 from django.db.models import F
 #Import formi i modela
 from .forms import UserRegisterForm, EmployeeForm
-from .models import ScheduleEntry, ShiftType, Employee, WorkDay
+from .models import ScheduleEntry, ShiftType, Employee, WorkDay, FixedHourFund, Holiday, ExcessHours
 #Django.views importovi
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
@@ -23,7 +23,7 @@ from django.core import serializers
 from django.template.loader import render_to_string
 from django.shortcuts import get_object_or_404
 import calendar
-
+from calendar import monthrange
 
 #Excel importovi
 import xlsxwriter
@@ -480,7 +480,6 @@ def download_schedule(request):
 @login_required
 def download_sihterica(request):
     # Define Croatian month names
-    # Define Croatian month names (for reference or elsewhere if needed)
     croatian_months = {
         1: 'Siječanj', 2: 'Veljača', 3: 'Ožujak',
         4: 'Travanj', 5: 'Svibanj', 6: 'Lipanj',
@@ -492,7 +491,8 @@ def download_sihterica(request):
     current_date = date.today()
     current_month = current_date.month  # Use the month's numeric value directly
     current_year = current_date.year
-
+    days_in_month = monthrange(current_year, current_month)[1]
+    
     output = BytesIO()
     workbook = xlsxwriter.Workbook(output, {'in_memory': True})
     worksheet = workbook.add_worksheet()
@@ -532,7 +532,7 @@ def download_sihterica(request):
 
     # Day abbreviations for each day of the week (Monday to Sunday)
     day_abbreviations = ['P', 'U', 'S', 'Č', 'P', 'S', 'N']
-    for day in range(1, 32):
+    for day in range(1, days_in_month + 1):
         weekday = date(year=current_year, month=current_date.month, day=day).weekday()
         format_to_use = saturday_format if weekday == 5 else sunday_format if weekday == 6 else header_format
         worksheet.write(1, day + 1, day_abbreviations[weekday], format_to_use)
@@ -541,11 +541,11 @@ def download_sihterica(request):
     worksheet.merge_range(1, 34, 2, 34, 'Fond sati', total_format)
     worksheet.merge_range(1, 35, 2, 35, 'Regularni rad', total_format)
     worksheet.merge_range(1, 36, 2, 36, 'Turnus', total_format)
-    worksheet.merge_range(1, 37, 2, 37, 'Višak sati', total_format)
+    worksheet.merge_range(1, 37, 2, 37, 'Višak fonda', total_format)
     worksheet.merge_range(1, 38, 2, 38, 'Subota', total_format)
     worksheet.merge_range(1, 39, 2, 39, 'Nedjelja', total_format)
     worksheet.merge_range(1, 40, 2, 40, 'Noćni rad', total_format)
-    worksheet.merge_range(1, 41, 2, 41, 'Praznik', total_format)
+    worksheet.merge_range(1, 41, 2, 41, 'Blagdan', total_format)
     worksheet.merge_range(1, 42, 2, 42, 'Bolovanje', total_format)
 
     # Fill employee data
@@ -562,7 +562,7 @@ def download_sihterica(request):
         total_sunday_hours = total_holiday_hours = total_sick_leave_hours = 0
 
         # Iterate over each day of the month
-        for day in range(1, 32):
+        for day in range(1, days_in_month + 1):
             current_date = date(year=date.today().year, month=date.today().month, day=day)
             work_day = WorkDay.objects.filter(employee=employee, date=current_date).first()
             weekday = current_date.weekday()
@@ -581,15 +581,21 @@ def download_sihterica(request):
                 worksheet.write(row_idx, day + 1, '', cell_format)
                 worksheet.write(row_idx + 1, day + 1, '', cell_format)
 
-        # Add aggregated data
-        hour_fond = 168  # Example: Replace with actual calculation if required
-        regular_hours = total_day_hours + total_night_hours
-        excess_hours = regular_hours - hour_fond
+        # Load or calculate hourly funds
+        try:
+            hour_fund = FixedHourFund.objects.get(month__year=current_year, month__month=current_month).required_hours
+        except FixedHourFund.DoesNotExist:
+            hour_fund = 168  # Default or error handling scenario
 
-        worksheet.merge_range(row_idx, 34, row_idx + 1, 34, hour_fond, total_format)
-        worksheet.merge_range(row_idx, 35, row_idx + 1, 35, regular_hours, total_format)
-        worksheet.merge_range(row_idx, 36, row_idx + 1, 36, regular_hours, total_format)
-        worksheet.merge_range(row_idx, 37, row_idx + 1, 37, excess_hours, total_format)
+        redovan_rad = employee.calculate_redovan_rad(current_month, current_year)
+        turnus = employee.calculate_monthly_hours(current_month, current_year)
+        visak_sati = employee.calculate_visak_sati(current_month, current_year)
+
+        # Fill in the aggregate data
+        worksheet.merge_range(row_idx, 34, row_idx + 1, 34, hour_fund, total_format)
+        worksheet.merge_range(row_idx, 35, row_idx + 1, 35, redovan_rad, total_format)
+        worksheet.merge_range(row_idx, 36, row_idx + 1, 36, turnus, total_format)
+        worksheet.merge_range(row_idx, 37, row_idx + 1, 37, visak_sati, total_format)
         worksheet.merge_range(row_idx, 38, row_idx + 1, 38, total_saturday_hours, total_format)
         worksheet.merge_range(row_idx, 39, row_idx + 1, 39, total_sunday_hours, total_format)
         worksheet.merge_range(row_idx, 40, row_idx + 1, 40, total_night_hours, total_format)
@@ -597,6 +603,9 @@ def download_sihterica(request):
         worksheet.merge_range(row_idx, 42, row_idx + 1, 42, total_sick_leave_hours, total_format)
 
         row_idx += 2
+        
+    #-----------------------Aggregate table for total overview----------------------------
+        
     # First aggregate table start
     agg_start_row = row_idx + 2
 
@@ -633,7 +642,7 @@ def download_sihterica(request):
         
         worksheet.write(agg_start_row, 0, f"{employee.name} {employee.surname}", row_format)
         worksheet.write(agg_start_row, 1, idx + 1, row_format)
-        worksheet.write(agg_start_row, 2, hour_fond, row_format)
+        worksheet.write(agg_start_row, 2, hour_fund, row_format)
         worksheet.write(agg_start_row, 3, total_day_hours, row_format)
         worksheet.write(agg_start_row, 4, total_holiday_hours, row_format)
         worksheet.write(agg_start_row, 5, total_vacation_hours, row_format)
@@ -665,7 +674,10 @@ def download_sihterica(request):
 
     total_preparation_overtime=0
 
-    # Calculate the number of weeks in the current month
+
+   #-----------------------Aggregate table for sati pripreme-----------------------------
+   
+   
     first_day_of_month = date(current_year, current_month, 1)
     last_day_of_month = date(current_year, current_month, calendar.monthrange(current_year, current_month)[1])
     weeks = {((first_day_of_month + timedelta(days=x)).isocalendar()[1]) for x in range((last_day_of_month - first_day_of_month).days + 1)}
@@ -719,26 +731,44 @@ def download_sihterica(request):
 
         agg_start_row += 1
     
-        # Adding a new table for surplus-deficit hours
+    #-----------------------Aggregate table for višak manjak sati-----------------------------
+    
+    # Calculate the cumulative excess up to the last month
+    previous_month = current_month - 1 if current_month > 1 else 12
+    previous_year = current_year if current_month > 1 else current_year - 1
+    last_day_of_previous_month = monthrange(previous_year, previous_month)[1]
+    previous_month_header = f"Fond sati s {last_day_of_previous_month}.{previous_month}.{previous_year}"
+
+    current_month_excess_header = f"Višak fonda ({croatian_months[current_month]} {current_year})"
+    last_day_of_current_month = monthrange(current_year, current_month)[1]
+    current_month_header = f"Fond sati s {last_day_of_current_month}.{current_month}.{current_year}"
+
+    # Begin writing the table for cumulative excess
     worksheet.merge_range(agg_start_row, 0, agg_start_row, 4, 'EVIDENCIJA VIŠKA-MANJKA SATI', title_format)
-    agg_start_row += 1
-    sub_headers = ['PREZIME I IME', 'rb', 'Fond sati s 31.01.2024.', 'VELJAČA', '29.02.2024.']
-    worksheet.write_row(agg_start_row, 0, sub_headers, header_format)
+    sub_headers = ['PREZIME I IME', 'rb', previous_month_header, current_month_excess_header, current_month_header]
+    worksheet.write_row(agg_start_row + 1, 0, sub_headers, header_format)
+    agg_start_row += 2
 
-    # Simulating filling this new table
-    agg_start_row += 1
-    for idx, employee in enumerate(Employee.objects.all()):
-        january_hours = 160  # Placeholder for actual calculation
-        february_hours = 150  # Placeholder for actual calculation
-        worksheet.write(agg_start_row, 1, f"{employee.surname} {employee.name}", bold_format)
-        worksheet.write(agg_start_row, 0, idx + 1, bold_format)
-        worksheet.write(agg_start_row, 2, january_hours, hours_format)
-        worksheet.write(agg_start_row, 3, february_hours, hours_format)
-        worksheet.write(agg_start_row, 4, february_hours, hours_format)  # Placeholder, adjust as needed
+    # Populate the table with the correct excess hours calculations
+    for idx, employee in enumerate(employees):
+        # Fetch the previous month's cumulative excess from the database
+        try:
+            previous_excess_record = ExcessHours.objects.get(employee=employee, year=previous_year, month=previous_month)
+            previous_excess = previous_excess_record.excess_hours
+        except ExcessHours.DoesNotExist:
+            previous_excess = 0  # Handle the case where no record exists
+
+        # Calculate the current month's excess
+        current_excess = employee.calculate_visak_sati(current_month, current_year)
+        cumulative_excess_current_month = previous_excess + current_excess
+
+        worksheet.write(agg_start_row, 0, f"{employee.surname} {employee.name}", white_format)
+        worksheet.write(agg_start_row, 1, idx + 1, white_format)
+        worksheet.write(agg_start_row, 2, previous_excess, hours_format)
+        worksheet.write(agg_start_row, 3, current_excess, hours_format)
+        worksheet.write(agg_start_row, 4, cumulative_excess_current_month, hours_format)
+
         agg_start_row += 1
-
-    workbook.close()
-    output.seek(0)
 
     workbook.close()
     output.seek(0)
@@ -756,21 +786,6 @@ def column_letter(index):
         index = index // 26 - 1
     return result
 
-# Utility to calculate workable days in a month
-def workable_days(year, month):
-    num_days = calendar.monthrange(year, month)[1]
-    return sum(1 for day in range(1, num_days + 1)
-               if (date(year, month, day).weekday() < 5))  # Assuming Saturday (5) and Sunday (6) are non-work days
-
-# Calculate surplus hours
-def calculate_surplus_hours(employee, year, month):
-    start_date = date(year, month, 1)
-    end_date = date(year, month, calendar.monthrange(year, month)[1])
-    work_days = WorkDay.objects.filter(employee=employee, date__range=(start_date, end_date))
-    # Assuming a standard of 8 hours per workable day
-    expected_hours = workable_days(year, month) * 8
-    worked_hours = work_days.aggregate(total_hours=Sum('day_hours'))['total_hours'] or 0
-    return worked_hours - expected_hours
 
 
 def generate_schedule_pdf(file_path, week_dates, shift_types, schedule_data, author_name):
