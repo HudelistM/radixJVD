@@ -22,9 +22,9 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = 'django-insecure-s2)7)h(bzr7khqb$th@!qcgy08^coq(ts2ypaf4wwwz5$6r!9_'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = False
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['165.232.126.170']
 
 LOGIN_REDIRECT_URL = 'landingPage'
 LOGOUT_REDIRECT_URL = 'landingPage'
@@ -81,11 +81,14 @@ WSGI_APPLICATION = 'JVD_app.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': 'django',
+        'USER': 'django',
+        'PASSWORD': 'd52248b65c677eec482e04c0a3483493',
+        'HOST': 'localhost',
+        'PORT': '',  # Default postgres port is used if blank
     }
 }
-
 
 # Password validation
 # https://docs.djangoproject.com/en/5.0/ref/settings/#auth-password-validators
