@@ -652,24 +652,28 @@ def download_sihterica(request):
         row_idx += 2
         
     #-----------------------Aggregate table for total overview----------------------------
-        
+    worksheet.set_column(34,34,14)
+    worksheet.set_column(35, 50, 12)  # Adjusted to column AX
     # First aggregate table start
     agg_start_row = row_idx + 2
-
+    agg_start_col = 34
+    
     # Title for the first aggregate table
-    worksheet.merge_range(agg_start_row, 0, agg_start_row, 15, f'Ukupni sati za {month_name} {current_year}', title_format)
+    worksheet.merge_range(agg_start_row, agg_start_col, agg_start_row, agg_start_col + 15, f'Ukupni sati za {month_name} {current_year}', title_format)
     agg_start_row += 1
 
     # Add first aggregate table headers
     aggregate_headers = ['Ime i Prezime', 'rb.', 'Fond sati', 'Red. rad', 'Drž. pr. i bla.', 'Godišnji o.', 'Bolovanje', 'Noćni rad',
                          'Rad sub.', 'Rad. ned.', 'Slobodan dan', 'Turnus', 'Priprema', 'Prek.rad', 'Prek. USLUGA', 'Prek. Višak Fonda']
 
-    small_header_format = workbook.add_format({'align': 'center', 'bold': True, 'font_size': 7, 'bg_color': '#f0f0f0'})
+    small_header_format = workbook.add_format({'align': 'center', 'bold': True, 'font_size': 9, 'bg_color': '#f0f0f0'})
 
-    for col_num, header in enumerate(aggregate_headers):
-        worksheet.write(agg_start_row, col_num, header, small_header_format)
+    for i, header in enumerate(aggregate_headers):
+        worksheet.write(agg_start_row, agg_start_col + i, header, small_header_format)
 
     agg_start_row += 1
+
+    
 
     # Add first aggregate data
     for idx, employee in enumerate(employees):
@@ -687,22 +691,22 @@ def download_sihterica(request):
 
         row_format = gray_format if idx % 2 == 0 else white_format
         
-        worksheet.write(agg_start_row, 0, f"{employee.name} {employee.surname}", row_format)
-        worksheet.write(agg_start_row, 1, idx + 1, row_format)
-        worksheet.write(agg_start_row, 2, hour_fund, row_format)
-        worksheet.write(agg_start_row, 3, total_day_hours, row_format)
-        worksheet.write(agg_start_row, 4, total_holiday_hours, row_format)
-        worksheet.write(agg_start_row, 5, total_vacation_hours, row_format)
-        worksheet.write(agg_start_row, 6, total_sick_leave_hours, row_format)
-        worksheet.write(agg_start_row, 7, total_night_hours, row_format)
-        worksheet.write(agg_start_row, 8, total_saturday_hours, row_format)
-        worksheet.write(agg_start_row, 9, total_sunday_hours, row_format)
-        worksheet.write(agg_start_row, 10, total_free_days_hours, row_format)
-        worksheet.write(agg_start_row, 11, total_day_hours + total_night_hours, row_format)
-        worksheet.write(agg_start_row, 12, total_on_call_hours, row_format)
-        worksheet.write(agg_start_row, 13, total_overtime_hours, row_format)
-        worksheet.write(agg_start_row, 14, 0, row_format)  # Prek. USLUGA
-        worksheet.write(agg_start_row, 15, 0, row_format)  # Prek. Višak Fonda
+        worksheet.write(agg_start_row, agg_start_col, f"{employee.name} {employee.surname}", row_format)
+        worksheet.write(agg_start_row, agg_start_col+1, idx + 1, row_format)
+        worksheet.write(agg_start_row, agg_start_col+2, hour_fund, row_format)
+        worksheet.write(agg_start_row, agg_start_col+3, total_day_hours, row_format)
+        worksheet.write(agg_start_row, agg_start_col+4, total_holiday_hours, row_format)
+        worksheet.write(agg_start_row, agg_start_col+5, total_vacation_hours, row_format)
+        worksheet.write(agg_start_row, agg_start_col+6, total_sick_leave_hours, row_format)
+        worksheet.write(agg_start_row, agg_start_col+7, total_night_hours, row_format)
+        worksheet.write(agg_start_row, agg_start_col+8, total_saturday_hours, row_format)
+        worksheet.write(agg_start_row, agg_start_col+9, total_sunday_hours, row_format)
+        worksheet.write(agg_start_row, agg_start_col+10, total_free_days_hours, row_format)
+        worksheet.write(agg_start_row, agg_start_col+11, total_day_hours + total_night_hours, row_format)
+        worksheet.write(agg_start_row, agg_start_col+12, total_on_call_hours, row_format)
+        worksheet.write(agg_start_row, agg_start_col+13, total_overtime_hours, row_format)
+        worksheet.write(agg_start_row, agg_start_col+14, 0, row_format)  # Prek. USLUGA
+        worksheet.write(agg_start_row, agg_start_col+15, 0, row_format)  # Prek. Višak Fonda
 
         agg_start_row += 1
 
@@ -711,10 +715,10 @@ def download_sihterica(request):
     last_data_row = agg_start_row  # The row before the aggregate starts
 
     # Add "Ukupno" title in the first column of the total row
-    worksheet.write(last_data_row , 0, 'Ukupno', header_format)
+    worksheet.write(last_data_row , agg_start_col, 'Ukupno', header_format)
 
     # Writing sum formulas directly below the last data entry
-    for col_num in range(2, 16):  # Adjusting the column range for sum
+    for col_num in range(36, 50):  # Adjusting the column range for sum
         column_letter_value = column_letter(col_num + 1)  # Using a helper function for Excel column letters
         formula_range = f"{column_letter_value}{first_data_row}:{column_letter_value}{last_data_row}"
         worksheet.write_formula(last_data_row, col_num, f"=SUM({formula_range})", total_format)
@@ -784,16 +788,16 @@ def download_sihterica(request):
     previous_month = current_month - 1 if current_month > 1 else 12
     previous_year = current_year if current_month > 1 else current_year - 1
     last_day_of_previous_month = monthrange(previous_year, previous_month)[1]
-    previous_month_header = f"Fond sati s {last_day_of_previous_month}.{previous_month}.{previous_year}"
+    previous_month_header = f"Fond sati s {last_day_of_previous_month}.{previous_month}"
 
     current_month_excess_header = f"Višak fonda ({croatian_months[current_month]} {current_year})"
     last_day_of_current_month = monthrange(current_year, current_month)[1]
-    current_month_header = f"Fond sati s {last_day_of_current_month}.{current_month}.{current_year}"
+    current_month_header = f"Fond sati s {last_day_of_current_month}.{current_month}"
 
     # Begin writing the table for cumulative excess
-    worksheet.merge_range(agg_start_row, 0, agg_start_row, 4, 'EVIDENCIJA VIŠKA-MANJKA SATI', title_format)
+    worksheet.merge_range(agg_start_row, agg_start_col, agg_start_row, agg_start_col+4, 'EVIDENCIJA VIŠKA-MANJKA SATI', title_format)
     sub_headers = ['PREZIME I IME', 'rb', previous_month_header, current_month_excess_header, current_month_header]
-    worksheet.write_row(agg_start_row + 1, 0, sub_headers, header_format)
+    worksheet.write_row(agg_start_row + 1, agg_start_col, sub_headers, small_header_format)
     agg_start_row += 2
 
     # Populate the table with the correct excess hours calculations
@@ -809,11 +813,11 @@ def download_sihterica(request):
         current_excess = employee.calculate_visak_sati(current_month, current_year)
         cumulative_excess_current_month = previous_excess + current_excess
 
-        worksheet.write(agg_start_row, 0, f"{employee.surname} {employee.name}", white_format)
-        worksheet.write(agg_start_row, 1, idx + 1, white_format)
-        worksheet.write(agg_start_row, 2, previous_excess, hours_format)
-        worksheet.write(agg_start_row, 3, current_excess, hours_format)
-        worksheet.write(agg_start_row, 4, cumulative_excess_current_month, hours_format)
+        worksheet.write(agg_start_row, agg_start_col, f"{employee.surname} {employee.name}", white_format)
+        worksheet.write(agg_start_row, agg_start_col+1, idx + 1, white_format)
+        worksheet.write(agg_start_row, agg_start_col+2, previous_excess, hours_format)
+        worksheet.write(agg_start_row, agg_start_col+3, current_excess, hours_format)
+        worksheet.write(agg_start_row, agg_start_col+4, cumulative_excess_current_month, hours_format)
 
         agg_start_row += 1
         
@@ -825,9 +829,9 @@ def download_sihterica(request):
     current_month_header_days = f"GO dani ({croatian_months[current_month]} {current_year})"
     previous_month_header = f"GO s {last_day_of_previous_month}.{previous_month}.{previous_year}"
 
-    worksheet.merge_range(agg_vacation_start_row, 0, agg_vacation_start_row, 4, 'EVIDENCIJA GODIŠNJIH ODMORA', title_format)
+    worksheet.merge_range(agg_vacation_start_row, agg_start_col, agg_vacation_start_row, agg_start_col+4, 'EVIDENCIJA GODIŠNJIH ODMORA', title_format)
     vacation_headers = ['Prezime i ime', previous_month_header, current_month_header_hours, current_month_header_days, previous_month_header]
-    worksheet.write_row(agg_vacation_start_row + 1, 0, vacation_headers, header_format)
+    worksheet.write_row(agg_vacation_start_row + 1, agg_start_col, vacation_headers, small_header_format)
     agg_vacation_start_row += 2
 
     # Populate the table
@@ -847,11 +851,11 @@ def download_sihterica(request):
         new_cumulative_vacation_days = new_cumulative_vacation_hours / 8
 
         # Write data to the worksheet
-        worksheet.write(agg_vacation_start_row, 0, f"{employee.surname} {employee.name}", white_format)
-        worksheet.write(agg_vacation_start_row, 1, previous_vacation_hours / 8, hours_format)  # Previous month cumulative in days
-        worksheet.write(agg_vacation_start_row, 2, current_vacation_hours, hours_format)
-        worksheet.write(agg_vacation_start_row, 3, current_vacation_days, hours_format)
-        worksheet.write(agg_vacation_start_row, 4, new_cumulative_vacation_days, hours_format)  # New cumulative in days
+        worksheet.write(agg_vacation_start_row, agg_start_col, f"{employee.surname} {employee.name}", white_format)
+        worksheet.write(agg_vacation_start_row, agg_start_col+1, previous_vacation_hours / 8, hours_format)  # Previous month cumulative in days
+        worksheet.write(agg_vacation_start_row, agg_start_col+2, current_vacation_hours, hours_format)
+        worksheet.write(agg_vacation_start_row, agg_start_col+3, current_vacation_days, hours_format)
+        worksheet.write(agg_vacation_start_row, agg_start_col+4, new_cumulative_vacation_days, hours_format)  # New cumulative in days
 
         agg_vacation_start_row += 1
 
