@@ -242,7 +242,7 @@ def calculate_shift_hours(employee, shift_type, date):
     if shift_type.category == '2.smjena':
         shift_hours['day'] += 3
         shift_hours['night'] += 2
-        shift_hours['on_call'] += 12  # Adding 12 hours of on-call duty only for regular 2nd shift
+        #shift_hours['on_call'] += 12  # Adding 12 hours of on-call duty only for regular 2nd shift
 
         next_day = date + timedelta(days=1)
         next_day_entry, _ = WorkDay.objects.get_or_create(
@@ -250,6 +250,7 @@ def calculate_shift_hours(employee, shift_type, date):
         )
         next_day_entry.night_hours = max(next_day_entry.night_hours, 6)
         next_day_entry.day_hours = max(next_day_entry.day_hours, 1)
+        next_day_entry.on_call_hours = max(next_day_entry.on_call_hours, 12)
         next_day_entry.save()
 
     elif shift_type.category in ['ina 2.smjena', 'janaf 2.smjena']:
@@ -297,7 +298,6 @@ def calculate_shift_hours(employee, shift_type, date):
 def update_schedule(request):
     try:
         data = json.loads(request.body.decode('utf-8'))
-
         if any(key not in data for key in ['action', 'employeeId', 'shiftTypeId', 'date']):
             return JsonResponse({'error': 'Missing required parameters'}, status=400)
 
@@ -305,49 +305,95 @@ def update_schedule(request):
         employee = get_object_or_404(Employee, pk=data['employeeId'])
         shift_type = get_object_or_404(ShiftType, pk=data['shiftTypeId'])
 
-        shift_hours = calculate_shift_hours(employee, shift_type, date)
+        with transaction.atomic():
+            if data['action'] == 'move':
+                original_date = datetime.strptime(data['originalDate'], '%Y-%m-%d').date()
+                original_shift_type = get_object_or_404(ShiftType, pk=data['originalShiftTypeId'])
 
-        work_day, created = WorkDay.objects.get_or_create(
-            employee=employee, date=date
-        )
-        work_day.day_hours += shift_hours['day']
-        work_day.night_hours += shift_hours['night']
-        work_day.holiday_hours = shift_hours['holiday']
-        work_day.sick_leave_hours = shift_hours['sick_leave']
-        work_day.saturday_hours = shift_hours['saturday']
-        work_day.sunday_hours = shift_hours['sunday']
-        work_day.on_call_hours += shift_hours['on_call']
-        work_day.save()
+                # Calculate shift hours for original and new shift types
+                original_shift_hours = calculate_shift_hours(employee, original_shift_type, original_date)
+                new_shift_hours = calculate_shift_hours(employee, shift_type, date)
 
-        if data['action'] == 'move':
-            original_date = datetime.strptime(data['originalDate'], '%Y-%m-%d').date()
-            original_shift_type = get_object_or_404(ShiftType, pk=data['originalShiftTypeId'])
+                # Adjust the original WorkDay and its following day if it is a night shift
+                adjust_and_delete_workday(employee, original_date, original_shift_hours)
 
-            with transaction.atomic():
-                original_entry = ScheduleEntry.objects.filter(date=original_date, shift_type=original_shift_type).first()
-                if original_entry:
-                    original_entry.employees.remove(employee)
-                    if not original_entry.employees.exists():
-                        original_entry.delete()
+                # Create or update the new WorkDay
+                work_day, _ = WorkDay.objects.get_or_create(employee=employee, date=date)
+                add_hours_to_workday(work_day, new_shift_hours)
 
-                schedule_entry, created = ScheduleEntry.objects.get_or_create(
-                    date=date, shift_type=shift_type
-                )
+                # Handle potential next day's workday for the new shift
+                if new_shift_hours['night'] > 0:
+                    adjust_next_day_hours(employee, date, new_shift_hours['night'])
+
+                # Update ScheduleEntry
+                manage_schedule_entry(original_date, original_shift_type, employee)
+                schedule_entry, _ = ScheduleEntry.objects.get_or_create(date=date, shift_type=shift_type)
                 schedule_entry.employees.add(employee)
 
-        elif data['action'] == 'add':
-            with transaction.atomic():
-                schedule_entry, created = ScheduleEntry.objects.get_or_create(
-                    date=date, shift_type=shift_type
-                )
+            elif data['action'] == 'add':
+                work_day, _ = WorkDay.objects.get_or_create(employee=employee, date=date)
+                shift_hours = calculate_shift_hours(employee, shift_type, date)
+                add_hours_to_workday(work_day, shift_hours)
+                schedule_entry, _ = ScheduleEntry.objects.get_or_create(date=date, shift_type=shift_type)
                 schedule_entry.employees.add(employee)
 
-        return JsonResponse({'status': 'success', 'message': 'Schedule updated', 'created': created}, status=200)
+        return JsonResponse({'status': 'success', 'message': 'Schedule updated'}, status=200)
 
     except Exception as e:
         logger.error(f"Exception in update_schedule: {str(e)}")
         return JsonResponse({'error': 'Server error', 'details': str(e)}, status=500)
 
+def adjust_and_delete_workday(employee, date, shift_hours):
+    work_day = WorkDay.objects.filter(employee=employee, date=date).first()
+    if work_day:
+        subtract_hours_from_workday(work_day, shift_hours)
+        if work_day.day_hours <= 0 and work_day.night_hours <= 0:
+            work_day.delete()
+        else:
+            work_day.save()
+    if shift_hours['night'] > 0:
+        next_day = date + timedelta(days=1)
+        next_day_work_day = WorkDay.objects.filter(employee=employee, date=next_day).first()
+        if next_day_work_day:
+            next_day_work_day.night_hours = max(next_day_work_day.night_hours - shift_hours['night'], 0)
+            if next_day_work_day.night_hours <= 0:
+                next_day_work_day.delete()
+            else:
+                next_day_work_day.save()
+
+def add_hours_to_workday(work_day, shift_hours):
+    for key, hours in shift_hours.items():
+        current_hours = getattr(work_day, f'{key}_hours', 0)
+        setattr(work_day, f'{key}_hours', current_hours + hours)
+    work_day.save()
+
+def manage_schedule_entry(date, shift_type, employee):
+    entry = ScheduleEntry.objects.filter(date=date, shift_type=shift_type).first()
+    if entry:
+        entry.employees.remove(employee)
+        if not entry.employees.exists():
+            entry.delete()
+            
+def subtract_hours_from_workday(work_day, shift_hours):
+    # Subtract the respective hours and ensure they do not go below zero
+    for key, value in shift_hours.items():
+        current_hours = getattr(work_day, f'{key}_hours', 0)
+        # Set the hours to zero if subtraction goes negative
+        setattr(work_day, f'{key}_hours', max(current_hours - value, 0))
+    work_day.save()
+
+def adjust_next_day_hours(employee, date, night_hours):
+    # This function should adjust the night hours for the next day of a given WorkDay
+    next_day = date + timedelta(days=1)
+    next_day_work_day, created = WorkDay.objects.get_or_create(employee=employee, date=next_day)
+    if not created:
+        # If the WorkDay already existed, we adjust the hours
+        next_day_work_day.night_hours = max(next_day_work_day.night_hours - night_hours, 0)
+        next_day_work_day.save()
+    else:
+        # If it's a new WorkDay, we need to set the initial hours appropriately
+        next_day_work_day.night_hours = night_hours
+        next_day_work_day.save()
 
 
 # Croatian day names to use for mapping
@@ -607,32 +653,23 @@ def download_sihterica(request):
         
     #-----------------------Aggregate table for total overview----------------------------
         
-    # First aggregate table start (Assuming row_idx is last used row index)
+    # First aggregate table start
     agg_start_row = row_idx + 2
 
-    # Title for the first aggregate table, spanning all relevant columns
+    # Title for the first aggregate table
     worksheet.merge_range(agg_start_row, 0, agg_start_row, 15, f'Ukupni sati za {month_name} {current_year}', title_format)
     agg_start_row += 1
 
-    # Define headers for the first aggregate table and merge cells horizontally
-    worksheet.write(agg_start_row, 0, 'Ime i Prezime', header_format)  # Not merged
-    worksheet.write(agg_start_row, 1, 'rb.', header_format)  # Not merged
-    worksheet.merge_range(agg_start_row, 2, agg_start_row, 3, 'Fond sati', header_format)
-    worksheet.merge_range(agg_start_row, 4, agg_start_row, 5, 'Regularni rad', header_format)
-    worksheet.merge_range(agg_start_row, 6, agg_start_row, 7, 'Drž. pr. i bla.', header_format)
-    worksheet.merge_range(agg_start_row, 8, agg_start_row, 9, 'Godišnji o.', header_format)
-    worksheet.merge_range(agg_start_row, 10, agg_start_row, 11, 'Bolovanje', header_format)
-    worksheet.merge_range(agg_start_row, 12, agg_start_row, 13, 'Noćni rad', header_format)
-    worksheet.merge_range(agg_start_row, 14, agg_start_row, 15, 'Rad sub.', header_format)
-    worksheet.merge_range(agg_start_row + 1, 16, agg_start_row + 1, 17, 'Rad. ned.', header_format)
-    worksheet.merge_range(agg_start_row + 1, 18, agg_start_row + 1, 19, 'Slobodan dan', header_format)
-    worksheet.merge_range(agg_start_row + 1, 20, agg_start_row + 1, 21, 'Turnus', header_format)
-    worksheet.merge_range(agg_start_row + 1, 22, agg_start_row + 1, 23, 'Priprema', header_format)
-    worksheet.merge_range(agg_start_row + 1, 24, agg_start_row + 1, 25, 'Prek.rad', header_format)
-    worksheet.merge_range(agg_start_row + 1, 26, agg_start_row + 1, 27, 'Prek. USLUGA', header_format)
-    worksheet.merge_range(agg_start_row + 1, 28, agg_start_row + 1, 29, 'Prek. Višak Fonda', header_format)
+    # Add first aggregate table headers
+    aggregate_headers = ['Ime i Prezime', 'rb.', 'Fond sati', 'Red. rad', 'Drž. pr. i bla.', 'Godišnji o.', 'Bolovanje', 'Noćni rad',
+                         'Rad sub.', 'Rad. ned.', 'Slobodan dan', 'Turnus', 'Priprema', 'Prek.rad', 'Prek. USLUGA', 'Prek. Višak Fonda']
 
-    agg_start_row += 2  # Adjust to start filling data
+    small_header_format = workbook.add_format({'align': 'center', 'bold': True, 'font_size': 7, 'bg_color': '#f0f0f0'})
+
+    for col_num, header in enumerate(aggregate_headers):
+        worksheet.write(agg_start_row, col_num, header, small_header_format)
+
+    agg_start_row += 1
 
     # Add first aggregate data
     for idx, employee in enumerate(employees):
