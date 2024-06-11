@@ -17,21 +17,28 @@
   @apply inline-block p-2 border border-gray-300 rounded-md truncate;
 }
 
+.group-container {
+  @apply overflow-auto max-h-96;
+}
+
+#employees-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); /* Creates as many 150px min columns as will fit in the container */
+  gap: 10px; /* Adds some space between the blocks */
+}
 
 /* Group color coding */
-.employee-block.group-1 {
-    @apply bg-blue-100 text-blue-800;
-}
 .employee-block.group-2 {
-    @apply bg-red-100 text-red-800;
+  @apply bg-red-100 text-red-800; /* Updated color for Group 1 */
 }
 .employee-block.group-3 {
-    @apply bg-green-100 text-green-800;
+  @apply bg-green-100 text-green-800; /* Updated color for Group 2 */
 }
-
-/* Hide counter */
-.hide-counter {
-    display: none;
+.employee-block.group-4 {
+  @apply bg-blue-100 text-blue-800; /* Updated color for Group 3 */
+}
+.employee-block.group-5 {
+  @apply bg-gray-800 text-white; /* New Group 4 with dark theme */
 }
 
 /* Dropzone styling */

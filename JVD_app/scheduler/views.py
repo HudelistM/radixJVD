@@ -25,6 +25,7 @@ from django.template.loader import render_to_string
 from django.shortcuts import get_object_or_404
 import calendar
 from calendar import monthrange
+from django.utils.dateparse import parse_date
 
 #Excel importovi
 import xlsxwriter
@@ -88,6 +89,9 @@ def documents_view(request):
     ]
     return render(request, 'scheduler/dokumenti.html', {'documents': documents})
 
+#--------------------------------------------------------------------------
+#------------------------Funkcije za CRUD radnika--------------------------
+#--------------------------------------------------------------------------
 def radnici(request):
     
     employees = Employee.objects.all()
@@ -106,6 +110,18 @@ def radnici(request):
     }
     return render(request, 'scheduler/radnici.html', context)
 
+def get_employee_data(request, employee_id):
+    from django.http import JsonResponse
+    try:
+        employee = Employee.objects.get(pk=employee_id)
+        return JsonResponse({
+            'name': employee.name,
+            'surname': employee.surname,
+            'role': employee.role,
+            'group': employee.group,
+        })
+    except Employee.DoesNotExist:
+        return JsonResponse({'error': 'Employee not found'}, status=404)
 
 def add_employee(request):
     if request.method == 'POST':
@@ -119,6 +135,81 @@ def add_employee(request):
     
     return render(request, 'scheduler/radnici.html', {'form': form})
 
+@require_http_methods(["DELETE"])
+def delete_employee(request, employee_id):
+    try:
+        employee = Employee.objects.get(pk=employee_id)
+        employee.delete()
+        return JsonResponse({'message': 'Employee deleted successfully'}, status=204)
+    except Employee.DoesNotExist:
+        return JsonResponse({'error': 'Employee not found'}, status=404)
+
+def add_or_edit_employee(request):
+    if request.method == 'POST':
+        employee_id = request.POST.get('employee_id')
+        if employee_id:
+            employee = Employee.objects.get(id=employee_id)
+            form = EmployeeForm(request.POST, instance=employee)
+        else:
+            form = EmployeeForm(request.POST)
+        if form.is_valid():
+            saved_employee = form.save()
+            handle_vacation_schedule(saved_employee,
+                                     request.POST.get('vacation_start'),
+                                     request.POST.get('vacation_end'))
+            messages.success(request, 'Employee updated successfully' if employee_id else 'Employee added successfully')
+            return redirect('radnici')
+    else:
+        form = EmployeeForm()
+    return render(request, 'scheduler/radnici.html', {'form': form})
+
+def handle_vacation_schedule(employee, start_date, end_date):
+    if start_date and end_date:
+        start_date = parse_date(start_date)
+        end_date = parse_date(end_date)
+        shift_type_vacation = ShiftType.objects.get(name="Godišnji odmor")  # Ensure this shift type exists
+        current_date = start_date
+        day_count = 0
+        
+        while current_date <= end_date:
+            # Create a ScheduleEntry for every day of the vacation
+            schedule, created = ScheduleEntry.objects.get_or_create(
+                date=current_date,
+                shift_type=shift_type_vacation
+            )
+            # Add employee to the schedule entry
+            if created:
+                schedule.employees.add(employee)
+            elif not schedule.employees.filter(id=employee.id).exists():
+                schedule.employees.add(employee)
+
+            # Determine hours based on the vacation shift pattern
+            if day_count % 4 == 0:  # Day 1: First Shift
+                hours = 12
+            elif day_count % 4 == 1:  # Day 2: Night Shift starts
+                hours = 5
+            elif day_count % 4 == 2:  # Day 3: Continuation of Night Shift
+                hours = 7
+            else:  # Day 4: Free day
+                hours = 0
+
+            if hours > 0:
+                work_day, work_created = WorkDay.objects.get_or_create(
+                    employee=employee, 
+                    date=current_date,
+                    defaults={'vacation_hours': hours}
+                )
+                if not work_created and work_day.vacation_hours != hours:
+                    work_day.vacation_hours = hours
+                    work_day.save()
+
+            # Move to the next day
+            current_date += timedelta(days=1)
+            day_count += 1
+
+#--------------------------------------------------------------------------
+#--------------------Funkcije za CRUD rasporeda i sati---------------------
+#--------------------------------------------------------------------------
 
 def schedule_view(request):
     # Default start_date to the current week's Monday if no parameter is passed
@@ -395,6 +486,10 @@ def adjust_next_day_hours(employee, date, night_hours):
         next_day_work_day.night_hours = night_hours
         next_day_work_day.save()
 
+#--------------------------------------------------------------------------
+#---------------------Generiranje Excel datoteki i PDF-a-------------------
+#--------------------------------------------------------------------------
+
 
 # Croatian day names to use for mapping
 day_names_cro = {
@@ -554,6 +649,8 @@ def download_sihterica(request):
     sunday_format = workbook.add_format({'align': 'center', 'bg_color': '#FFFF99'})  # Yellow
     gray_format = workbook.add_format({'bg_color': '#E0E0E0', 'align': 'center'})  # Gray
     white_format = workbook.add_format({'bg_color': '#FFFFFF', 'align': 'center'})  # White
+    vacation_format = workbook.add_format({'align': 'center',  'font_color': '#00FF00'})
+    total_vacation_format = workbook.add_format({'align': 'center','font_color': '#00FF00', 'bg_color': '#d9e1f2'})
 
 
     # Group text color formats
@@ -562,6 +659,8 @@ def download_sihterica(request):
         '2': workbook.add_format({'color': '#D35400', 'align': 'center', 'valign': 'vcenter', 'font_size': 12, 'bold': True}),
         '3': workbook.add_format({'color': '#2980B9', 'align': 'center', 'valign': 'vcenter', 'font_size': 12, 'bold': True}),
     }
+    
+
 
     # Set column widths
     worksheet.set_column(0, 0, 20)  # Employee names
@@ -594,10 +693,13 @@ def download_sihterica(request):
     worksheet.merge_range(1, 40, 2, 40, 'Noćni rad', total_format)
     worksheet.merge_range(1, 41, 2, 41, 'Blagdan', total_format)
     worksheet.merge_range(1, 42, 2, 42, 'Bolovanje', total_format)
+    worksheet.merge_range(1, 43, 2, 43, 'Godišnji odmor', total_format)
 
     # Fill employee data
     row_idx = 3
     employees = Employee.objects.all()
+    
+    
     for employee in employees:
         group_format = group_text_formats.get(employee.group, bold_format)
         worksheet.merge_range(row_idx, 0, row_idx + 1, 0, f"{employee.name} {employee.surname}", group_format)
@@ -607,26 +709,39 @@ def download_sihterica(request):
         # Initialize aggregates
         total_day_hours = total_night_hours = total_saturday_hours = 0
         total_sunday_hours = total_holiday_hours = total_sick_leave_hours = 0
+        total_vacation_hours = WorkDay.objects.filter(employee=employee, vacation_hours__gt=0).aggregate(Sum('vacation_hours'))['vacation_hours__sum'] or 0
 
         # Iterate over each day of the month
         for day in range(1, days_in_month + 1):
-            current_date = date(year=date.today().year, month=date.today().month, day=day)
+            current_date = date(year=current_year, month=current_month, day=day)
             work_day = WorkDay.objects.filter(employee=employee, date=current_date).first()
             weekday = current_date.weekday()
-            cell_format = saturday_format if weekday == 5 else sunday_format if weekday == 6 else hours_format
+            base_cell_format = saturday_format if weekday == 5 else sunday_format if weekday == 6 else hours_format
 
             if work_day:
-                worksheet.write(row_idx, day + 1, work_day.day_hours, cell_format)
-                worksheet.write(row_idx + 1, day + 1, work_day.night_hours, cell_format)
-                total_day_hours += work_day.day_hours
-                total_night_hours += work_day.night_hours
-                total_saturday_hours += work_day.saturday_hours
-                total_sunday_hours += work_day.sunday_hours
-                total_holiday_hours += work_day.holiday_hours
-                total_sick_leave_hours += work_day.sick_leave_hours
+                day_hours_display = work_day.day_hours if work_day.day_hours != 0 else ''
+                night_hours_display = work_day.night_hours if work_day.night_hours != 0 else ''
+
+                # Apply green text for vacation only on the 'RD' row and maintain weekend formatting
+                if work_day.vacation_hours > 0:
+                    worksheet.write(row_idx, day + 1, '0', vacation_format)  # Green zero for RD row
+                    worksheet.write(row_idx + 1, day + 1, night_hours_display, base_cell_format)  # Normal formatting for RN row
+                else:
+                    worksheet.write(row_idx, day + 1, day_hours_display, base_cell_format)
+                    worksheet.write(row_idx + 1, day + 1, night_hours_display, base_cell_format)
+
+                # Update aggregates
+                total_day_hours += work_day.day_hours if isinstance(work_day.day_hours, int) else 0
+                total_night_hours += work_day.night_hours if isinstance(work_day.night_hours, int) else 0
+                if weekday == 5:
+                    total_saturday_hours += work_day.day_hours if isinstance(work_day.day_hours, int) else 0
+                elif weekday == 6:
+                    total_sunday_hours += work_day.day_hours if isinstance(work_day.day_hours, int) else 0
+                total_holiday_hours += work_day.holiday_hours if isinstance(work_day.holiday_hours, int) else 0
+                total_sick_leave_hours += work_day.sick_leave_hours if isinstance(work_day.sick_leave_hours, int) else 0
             else:
-                worksheet.write(row_idx, day + 1, '', cell_format)
-                worksheet.write(row_idx + 1, day + 1, '', cell_format)
+                worksheet.write(row_idx, day + 1, '', base_cell_format)
+                worksheet.write(row_idx + 1, day + 1, '', base_cell_format)
 
         # Load or calculate hourly funds
         try:
@@ -648,6 +763,7 @@ def download_sihterica(request):
         worksheet.merge_range(row_idx, 40, row_idx + 1, 40, total_night_hours, total_format)
         worksheet.merge_range(row_idx, 41, row_idx + 1, 41, total_holiday_hours, total_format)
         worksheet.merge_range(row_idx, 42, row_idx + 1, 42, total_sick_leave_hours, total_format)
+        worksheet.merge_range(row_idx, 43, row_idx + 1, 43, total_vacation_hours, total_vacation_format)
 
         row_idx += 2
         
