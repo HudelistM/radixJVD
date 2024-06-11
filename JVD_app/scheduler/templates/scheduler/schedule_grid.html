@@ -1,5 +1,6 @@
 {% extends 'base.html' %}
 {% load custom_templates %}
+{% load custom_filters %}
 
 {% block content %}
 <body>
@@ -43,12 +44,10 @@
           
           <!-- Employees List -->
           <div id="employees-list" class="draggable-elements p-4">
-            {% for employee in employees %}
-              {% if employee.group != '1' %}
+            {% for employee in employees|exclude_and_sort_by_group %}
               <div class="employee-block group-{{ employee.group }}" data-employee-id="{{ employee.id }}" data-group="{{ employee.group }}">
-                  <span class="employee-name">{{ employee.surname }} {{ employee.name|slice:":1" }}. ({{ employee.group}})</span>
+                  <span class="employee-name">{{ employee.surname }} {{ employee.name|slice:":1" }}. ({{ employee.group }})</span>
               </div>
-              {% endif %}
             {% endfor %}
           </div>
         </div>

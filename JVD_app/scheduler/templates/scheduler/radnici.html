@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-
+{% load static %}
 {% block content %}
 
 <div class="container">
@@ -28,10 +28,23 @@
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {% for employee in employees %}
             <div class="p-4 border rounded-lg">
-                <h3 class="text-lg font-semibold">{{ employee.name }} {{ employee.surname }}</h3>
-                <p class="text-sm text-gray-600">Rola: {{ employee.role }}</p>
+                <div class="flex justify-between">
+                    <div>
+                        <h3 class="text-xl font-semibold">{{ employee.name }} {{ employee.surname }}</h3>
+                        <p class="text-md text-gray-600">Pozicija: {{ employee.role }}</p>
+                    </div>
+                    <div class="flex flex-col items-center justify-start space-y-1">
+                        <button class="edit-button" data-id="{{ employee.id }}" title="Edit">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7 mr-2 border-gray-950 rounded-md hover:bg-red-500 transition-colors duration-300 hover:shadow-md hover:fill-white" viewBox="0 -960 960 960" fill="#434343"><path d="M160-400v-80h280v80H160Zm0-160v-80h440v80H160Zm0-160v-80h440v80H160Zm360 560v-123l221-220q9-9 20-13t22-4q12 0 23 4.5t20 13.5l37 37q8 9 12.5 20t4.5 22q0 11-4 22.5T863-380L643-160H520Zm300-263-37-37 37 37ZM580-220h38l121-122-18-19-19-18-122 121v38Zm141-141-19-18 37 37-18-19Z"/></svg>
+                        </button>
+                        <button class="delete-button" data-id="{{ employee.id }}" title="Delete">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7 mr-2 border-gray-950 rounded-md hover:bg-red-500 transition-colors duration-300 hover:shadow-md hover:fill-white" viewBox="0 -960 960 960" fill="#EA3323"><path d="M280-120q-33 0-56.5-23.5T200-200v-520h-40v-80h200v-40h240v40h200v80h-40v520q0 33-23.5 56.5T680-120H280Zm400-600H280v520h400v-520ZM360-280h80v-360h-80v360Zm160 0h80v-360h-80v360ZM280-720v520-520Z"/></svg>
+                        </button>
+                    </div>
+                </div>
             </div>
             {% endfor %}
+            
         </div>
         {% else %}
         <div class="text-center py-4">
@@ -44,19 +57,17 @@
 
 
 <!-- MONDAL -->
-<div class="modal hidden opacity-0 pointer-events-none fixed inset-0 z-50 flex items-center justify-center">
+<div class="modal opacity-0 pointer-events-none fixed flex inset-0 z-50 items-center justify-center">
     <div class="modal-overlay absolute inset-0 bg-black opacity-50"></div>
-    <div class="modal-container bg-white w-11/12 md:max-w-md mx-auto rounded shadow-lg z-50 overflow-y-auto">
+    <div class="modal-container bg-white dark:bg-slate-600 w-11/12 md:max-w-md mx-auto rounded shadow-lg z-50 overflow-y-auto">
         <!-- Modal content -->
         <div class="modal-content py-4 text-left px-6">
             <!-- Modal header -->
             <div class="flex justify-between items-center pb-3">
-                <h3 class="text-lg font-semibold text-gray-900 dark:text-white">
-                    Dodaj novog radnika
-                </h3>
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-white" id="modal-title">Dodaj novog radnika</h3>
                 <button type="button"
-                    class="modal-close text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm w-8 h-8 ms-auto inline-flex justify-center items-center dark:hover:bg-gray-600 dark:hover:text-white"
-                    data-modal-toggle="crud-modal">
+                        class="modal-close text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm w-8 h-8 ms-auto inline-flex justify-center items-center dark:hover:bg-gray-600 dark:hover:text-white"
+                        data-modal-toggle="crud-modal">
                     <svg class="w-3 h-3" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none"
                         viewBox="0 0 14 14">
                         <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -66,63 +77,53 @@
                 </button>
             </div>
             <hr class="mb-4">
-
-            <!-- Modal body -->
-            <form action="{% url 'add_employee' %}" method="post" class="modal-content p-4 md:p-5">
+            <form action="{% url 'add_or_edit_employee' %}" method="post" class="modal-content p-4 md:p-5" id="employee-form">
                 {% csrf_token %}
+                <input type="hidden" id="employee-id" name="employee_id">
                 <div class="grid gap-4 mb-4 grid-cols-2">
                     <div class="col-span-2 sm:col-span-1">
-                        <label for="name"
-                            class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Ime</label>
-                        <input type="text" name="name" id="name"
-                            class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 dark:bg-gray-600 dark:border-gray-500 dark:placeholder-gray-400 dark:text-white dark:focus:ring-primary-500 dark:focus:border-primary-500"
-                            placeholder="Unesite ime" required="">
+                        <label for="name" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Ime</label>
+                        <input type="text" name="name" id="name" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 dark:bg-gray-600 dark:border-gray-500 dark:placeholder-gray-400 dark:text-white" required>
                     </div>
                     <div class="col-span-2 sm:col-span-1">
-                        <label for="name"
-                            class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Prezime</label>
-                        <input type="text" name="surname" id="name"
-                            class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 dark:bg-gray-600 dark:border-gray-500 dark:placeholder-gray-400 dark:text-white dark:focus:ring-primary-500 dark:focus:border-primary-500"
-                            placeholder="Unesite prezime" required="">
+                        <label for="surname" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Prezime</label>
+                        <input type="text" name="surname" id="surname" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 dark:bg-gray-600 dark:border-gray-500 dark:placeholder-gray-400 dark:text-white" required>
                     </div>
                     <div class="col-span-2">
-                        <label for="role"
-                            class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Role</label>
-                        <select id="role" name="role"
-                            class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-primary-500 focus:border-primary-500 block w-full p-2.5 dark:bg-gray-600 dark:border-gray-500 dark:placeholder-gray-400 dark:text-white dark:focus:ring-primary-500 dark:focus:border-primary-500"
-                            required>
+                        <label for="role" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Role</label>
+                        <select id="role" name="role" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-primary-500 focus:border-primary-500 block w-full p-2.5 dark:bg-gray-600 dark:border-gray-500 dark:placeholder-gray-400 dark:text-white" required>
                             <option value="" selected>Odaberi rolu</option>
+                            <option value="Kapetan">Kapetan</option>
+                            <option value="Administrator">Administrator</option>
+                            <option value="Voda_smjene">Vođa smjene</option>
                             <option value="Vatrogasac">Vatrogasac</option>
+                            <!-- Add other roles as needed -->
                         </select>
                     </div>
                     <div class="col-span-2">
-                        <label for="group"
-                            class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Grupe</label>
-                        <select id="group" name="group"
-                            class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-primary-500 focus:border-primary-500 block w-full p-2.5 dark:bg-gray-600 dark:border-gray-500 dark:placeholder-gray-400 dark:text-white dark:focus:ring-primary-500 dark:focus:border-primary-500"
-                            required>
-                            <option value="" selected>Odaberi grupu</option>
-                            <option value="Grupa1">Grupa 1(Ured)</option>
-                            <option value="Grupa2">Grupa 2</option>
-                            <option value="Grupa3">Grupa 3</option>
-                            <option value="Grupa4">Grupa 4</option>
-                            <option value="Grupa5">Grupa 5</option>
+                        <label for="group" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Grupe</label>
+                        <select id="group" name="group" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-primary-500 focus:border-primary-500 block w-full p-2.5 dark:bg-gray-600 dark:border-gray-500 dark:placeholder-gray-400 dark:text-white" required>
+                            <option value="1">Grupa 1(Ured)</option>
+                            <option value="2">Grupa 2</option>
+                            <option value="3">Grupa 3</option>
+                            <option value="4">Grupa 4</option>
+                            <option value="5">Grupa 5</option>
+                            <!-- Add other groups as needed -->
                         </select>
                     </div>
-                    <div class="col-span-2 text-center pt-5">
-                        <button type="submit"
-                            class="modal-add text-white inline-flex items-center bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800"
-                            required>
-                            <svg class="me-1 -ms-1 w-5 h-5" fill="currentColor" viewBox="0 0 20 20"
-                                xmlns="http://www.w3.org/2000/svg">
-                                <path fill-rule="evenodd"
-                                    d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z"
-                                    clip-rule="evenodd"></path>
-                            </svg>
-                            Dodaj radnika
-                        </button>
+                    <!-- Vacation date fields -->
+                    <div class="col-span-2 sm:col-span-1">
+                        <label for="vacation-start" class="block text-sm font-medium text-gray-900 dark:text-white">Godišnji Start</label>
+                        <input type="date" id="vacation-start" name="vacation_start" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50">
                     </div>
-                    
+                    <div class="col-span-2 sm:col-span-1">
+                        <label for="vacation-end" class="block text-sm font-medium text-gray-900 dark:text-white">Godišnji Kraj</label>
+                        <input type="date" id="vacation-end" name="vacation_end" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50">
+                    </div>
+                </div>
+                <div class="flex justify-end mt-4">
+                    <button type="submit" class="modal-add text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800">Save</button>
+                </div>
             </form>
         </div>
     </div>
