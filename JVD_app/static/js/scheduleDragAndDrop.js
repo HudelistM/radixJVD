@@ -185,6 +185,13 @@ function createEmployeeBlock(employee, date) {
   cogButton.onclick = () => openOvertimeModal(employee.id, date);
   div.appendChild(cogButton);
 
+  // Add delete button
+  const deleteButton = document.createElement('button');
+  deleteButton.className = 'delete-btn';
+  deleteButton.textContent = '❌';
+  deleteButton.onclick = () => deleteScheduleEntry(employee.id, date);
+  div.appendChild(deleteButton);
+
   return div;
 }
 

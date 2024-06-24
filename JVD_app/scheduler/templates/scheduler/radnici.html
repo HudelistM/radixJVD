@@ -27,7 +27,7 @@
         {% if employees %}
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {% for employee in employees %}
-            <div class="p-4 border rounded-lg">
+            <div class="employee-card p-4 border rounded-lg cursor-pointer hover:bg-gray-100" data-href="{% url 'radnik_profil' employee.id %}">
                 <div class="flex justify-between">
                     <div>
                         <h3 class="text-xl font-semibold">{{ employee.name }} {{ employee.surname }}</h3>
@@ -56,7 +56,7 @@
 
 
 
-<!-- MONDAL -->
+<!-- MODAL -->
 <div class="modal opacity-0 pointer-events-none fixed flex inset-0 z-50 items-center justify-center">
     <div class="modal-overlay absolute inset-0 bg-black opacity-50"></div>
     <div class="modal-container bg-white dark:bg-slate-600 w-11/12 md:max-w-md mx-auto rounded shadow-lg z-50 overflow-y-auto">
@@ -90,24 +90,31 @@
                         <input type="text" name="surname" id="surname" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 dark:bg-gray-600 dark:border-gray-500 dark:placeholder-gray-400 dark:text-white" required>
                     </div>
                     <div class="col-span-2">
-                        <label for="role" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Role</label>
+                        <label for="role" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Zvanja</label>
                         <select id="role" name="role" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-primary-500 focus:border-primary-500 block w-full p-2.5 dark:bg-gray-600 dark:border-gray-500 dark:placeholder-gray-400 dark:text-white" required>
-                            <option value="" selected>Odaberi rolu</option>
-                            <option value="Kapetan">Kapetan</option>
-                            <option value="Administrator">Administrator</option>
-                            <option value="Voda_smjene">Vođa smjene</option>
+                            <option value="" selected>Odaberi zvanje</option>
+                            <option value="Zapovjednik">Zapovjednik</option>
+                            <option value="Zamjenik zapovjednika">Zamjenik zapovjednika</option>
+                            <option value="Vatrogasac voditelj skupine">Vatrogasac voditelj skupine</option>
+                            <option value="Operativni radnik za tehniku i preventivu">Operativni radnik za tehniku i preventivu</option>
+                            <option value="Vatrogasac vozac">Vatrogasac vozač</option>
+                            <option value="Visi referent za ekonomske poslove">Viši referent za ekonomske poslove</option>
+                            <option value="Serviser vatrogasnih aparata">Serviser vatrogasnih aparata</option>
+                            <option value="Rukovatelj opcih ekonomskih i komercijalnih poslova">Rukovatelj opcih ekonomskih i komercijalnih poslova</option>
                             <option value="Vatrogasac">Vatrogasac</option>
+                            <option value="Spremacica">Spremačica</option>
                             <!-- Add other roles as needed -->
                         </select>
                     </div>
                     <div class="col-span-2">
                         <label for="group" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Grupe</label>
                         <select id="group" name="group" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-primary-500 focus:border-primary-500 block w-full p-2.5 dark:bg-gray-600 dark:border-gray-500 dark:placeholder-gray-400 dark:text-white" required>
-                            <option value="1">Grupa 1(Ured)</option>
-                            <option value="2">Grupa 2</option>
-                            <option value="3">Grupa 3</option>
-                            <option value="4">Grupa 4</option>
-                            <option value="5">Grupa 5</option>
+                            <option value="1">Ured</option>
+                            <option value="2">Grupa 1</option>
+                            <option value="3">Grupa 2</option>
+                            <option value="4">Grupa 3</option>
+                            <option value="5">Grupa 4</option>
+                            <option value="6">Grupa 5</option>
                             <!-- Add other groups as needed -->
                         </select>
                     </div>
@@ -129,5 +136,23 @@
     </div>
 </div>
 
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Get all the employee card elements
+        var cards = document.querySelectorAll('.employee-card');
+        
+        // Add click event listener to each card
+        cards.forEach(function(card) {
+            card.addEventListener('click', function(event) {
+                // Check if the clicked element or its parents are NOT a button
+                if (!event.target.closest('button')) {
+                    // Perform the navigation
+                    window.location.href = card.getAttribute('data-href');
+                }
+            });
+        });
+    });
+    </script>
 
 {% endblock %}
