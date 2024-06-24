@@ -1,6 +1,6 @@
 from django.db import models
 from django.db.models import Sum
-import uuid
+
 
 class Employee(models.Model):
     name = models.CharField(max_length=100)
@@ -104,7 +104,6 @@ class ShiftType(models.Model):
 
 
 class WorkDay(models.Model):
-    #id = models.UUIDField(default=uuid.uuid4, unique=True, primary_key=True, editable=False)
     employee = models.ForeignKey(Employee, on_delete=models.CASCADE)
     date = models.DateField()
     shift_type = models.ForeignKey(ShiftType, on_delete=models.CASCADE)
