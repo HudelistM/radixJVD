@@ -1,5 +1,6 @@
 from django.db import models
 from django.db.models import Sum
+import uuid
 
 class Employee(models.Model):
     name = models.CharField(max_length=100)
@@ -73,21 +74,7 @@ class ExcessHours(models.Model):
     def __str__(self):
         return f"{self.employee} {self.month}/{self.year} Excess: {self.excess_hours}, Vacation: {self.vacation_hours_used}"
 
-class WorkDay(models.Model):
-    employee = models.ForeignKey(Employee, on_delete=models.CASCADE)
-    date = models.DateField()
-    day_hours = models.FloatField(default=0)
-    night_hours = models.FloatField(default=0)
-    holiday_hours = models.FloatField(default=0, blank=True, null=True)
-    vacation_hours = models.FloatField(default=0, blank=True, null=True)
-    sick_leave_hours = models.FloatField(default=0, blank=True, null=True)
-    saturday_hours = models.FloatField(default=0, blank=True, null=True)
-    sunday_hours = models.FloatField(default=0, blank=True, null=True)
-    on_call_hours = models.FloatField(default=0, blank=True, null=True)
-    overtime_hours = models.FloatField(default=0, blank=True, null=True)
-    
-    def __str__(self):
-        return f"{self.employee.name} {self.employee.surname} - {self.date}"
+
 
     
 class ShiftType(models.Model):
@@ -110,10 +97,29 @@ class ShiftType(models.Model):
     end_time = models.TimeField(null=True, blank=True)
     is_on_call = models.BooleanField(default=False)
     is_regular = models.BooleanField(default=True)
+    isNightShift = models.BooleanField(default=False)
 
     def __str__(self):
         return self.name
 
+
+class WorkDay(models.Model):
+    #id = models.UUIDField(default=uuid.uuid4, unique=True, primary_key=True, editable=False)
+    employee = models.ForeignKey(Employee, on_delete=models.CASCADE)
+    date = models.DateField()
+    shift_type = models.ForeignKey(ShiftType, on_delete=models.CASCADE)
+    day_hours = models.FloatField(default=0)
+    night_hours = models.FloatField(default=0)
+    holiday_hours = models.FloatField(default=0, blank=True, null=True)
+    vacation_hours = models.FloatField(default=0, blank=True, null=True)
+    sick_leave_hours = models.FloatField(default=0, blank=True, null=True)
+    saturday_hours = models.FloatField(default=0, blank=True, null=True)
+    sunday_hours = models.FloatField(default=0, blank=True, null=True)
+    on_call_hours = models.FloatField(default=0, blank=True, null=True)
+    overtime_hours = models.FloatField(default=0, blank=True, null=True)
+
+    def __str__(self):
+        return f"{self.employee.name} {self.employee.surname} - {self.date}"
 
 class ScheduleEntry(models.Model):
     date = models.DateField()
