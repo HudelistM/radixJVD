@@ -4,7 +4,7 @@ from django_browser_reload.urls import urlpatterns as reload_urls
 from scheduler import views
 
 # Corrected imports
-from scheduler.views import radnici,landingPage, register, documents_view, schedule_view, api_schedule_data, update_overtime_hours, get_workday_data, update_schedule
+from scheduler.views import radnici,landingPage, register, documents_view, schedule_view, api_schedule_data, update_overtime_hours, get_workday_data, update_schedule, delete_workday
 from scheduler.views.worker_views import add_or_edit_employee, get_employee_data, delete_employee, radnik_profil
 from scheduler.views.excel_views import download_schedule, download_sihterica
 from scheduler.views.pdf_views import download_schedule_pdf,download_timesheet_pdf
@@ -32,6 +32,7 @@ urlpatterns = [
     path('api/schedule/', api_schedule_data, name='api_schedule_data'),
     path('update_overtime_hours/', update_overtime_hours, name='update_overtime_hours'),
     path('get_workday_data/', get_workday_data, name='get_workday_data'),
+    path('delete_workday/', delete_workday, name='delete_workday'),
 
     # Document views
     path('documents/', documents_view, name='documents_view'), 

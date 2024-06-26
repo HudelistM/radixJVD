@@ -40,6 +40,9 @@
 .employee-block.group-5 {
   @apply bg-gray-800 text-white; /* New Group 4 with dark theme */
 }
+.employee-block.group-6 {
+  @apply bg-purple-100 text-purple-800; /* New Group 4 with dark theme */
+}
 
 /* Dropzone styling */
 .dropzone {

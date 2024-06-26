@@ -18,6 +18,7 @@
           
           <input type="hidden" id="employee-id">
           <input type="hidden" id="work-date">
+          <input type="hidden" id="shift-type-id">
           
           <button onclick="submitOvertime()" class="bg-blue-500 hover:bg-blue-700 text-white py-2 px-4 rounded">U redu</button>
           <button onclick="closeOvertimeDialog()" class="bg-red-500 hover:bg-red-700 text-white py-2 px-4 rounded ml-2">Odustani</button>
@@ -46,7 +47,7 @@
                       {% with schedule_entry=schedule_data|get_item:day_str|get_item:shift_type.id %}
                         {% if schedule_entry %}
                           {% for employee in schedule_entry.employees.all %}
-                          <div class="employee-block group-{{ employee.group }}" data-employee-id="{{ employee.id }}" data-group="{{ employee.group }}">
+                          <div class="employee-block group-{{ employee.group }}" id="employee-block-{{ employee.id }}-{{ day|date:'Y-m-d' }}-{{ shift_type.id }}" data-employee-id="{{ employee.id }}" data-group="{{ employee.group }}"  data-shift-type-id="{{ shift_type.id }}">
                               <span class="employee-name">{{ employee.name }} {{ employee.surname }}</span>
                           </div>
                           {% endfor %}

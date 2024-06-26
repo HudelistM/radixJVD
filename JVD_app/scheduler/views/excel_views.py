@@ -164,6 +164,8 @@ def download_sihterica(request):
     current_year = current_date.year
     days_in_month = monthrange(current_year, current_month)[1]
     
+    employees = Employee.objects.all().order_by('group')
+    
     output = BytesIO()
     workbook = xlsxwriter.Workbook(output, {'in_memory': True})
     worksheet = workbook.add_worksheet()
@@ -226,9 +228,7 @@ def download_sihterica(request):
 
     # Fill employee data
     row_idx = 3
-    employees = Employee.objects.all()
-    
-    
+  
     for employee in employees:
         group_format = group_text_formats.get(employee.group, bold_format)
         worksheet.merge_range(row_idx, 0, row_idx + 1, 0, f"{employee.name} {employee.surname}", group_format)
