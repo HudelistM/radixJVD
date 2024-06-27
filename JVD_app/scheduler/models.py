@@ -113,13 +113,35 @@ class WorkDay(models.Model):
     holiday_hours = models.FloatField(default=0, blank=True, null=True)
     vacation_hours = models.FloatField(default=0, blank=True, null=True)
     sick_leave_hours = models.FloatField(default=0, blank=True, null=True)
+    article39_hours = models.FloatField(default=0, blank=True, null=True)
     saturday_hours = models.FloatField(default=0, blank=True, null=True)
     sunday_hours = models.FloatField(default=0, blank=True, null=True)
     on_call_hours = models.FloatField(default=0, blank=True, null=True)
     overtime_hours = models.FloatField(default=0, blank=True, null=True)
+    overtime_service = models.FloatField(default=0, blank=True, null=True)
+    overtime_free_day = models.FloatField(default=0, blank=True, null=True)
+    overtime_free_day_service = models.FloatField(default=0, blank=True, null=True)
+    overtime_excess_fond = models.FloatField(default=0, blank=True, null=True)
 
     def __str__(self):
         return f"{self.employee.name} {self.employee.surname} - {self.date}"
+
+class FreeDay(models.Model):
+    employee = models.ForeignKey(Employee, on_delete=models.CASCADE)
+    date = models.DateField()
+    is_article_39 = models.BooleanField(default=False)
+    is_byChoice = models.BooleanField(default=False)
+
+    def __str__(self):
+        return f"Free Day on {self.date} for {self.employee.name} ({'Article 39' if self.is_article_39 else 'Choice'})"
+    
+class Vacation(models.Model):
+    employee = models.ForeignKey(Employee, on_delete=models.CASCADE)
+    start_date = models.DateField()
+    end_date = models.DateField()
+
+    def __str__(self):
+        return f"Vacation from {self.start_date} to {self.end_date} for {self.employee.name}"
 
 class ScheduleEntry(models.Model):
     date = models.DateField()

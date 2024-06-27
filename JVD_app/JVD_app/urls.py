@@ -4,8 +4,8 @@ from django_browser_reload.urls import urlpatterns as reload_urls
 from scheduler import views
 
 # Corrected imports
-from scheduler.views import radnici,landingPage, register, documents_view, schedule_view, api_schedule_data, update_overtime_hours, get_workday_data, update_schedule
-from scheduler.views.worker_views import add_or_edit_employee, get_employee_data, delete_employee, radnik_profil
+from scheduler.views import radnici,landingPage, register, documents_view, schedule_view, api_schedule_data, update_overtime_hours, get_workday_data, update_schedule, delete_workday
+from scheduler.views.worker_views import add_or_edit_employee, get_employee_data, delete_employee, radnik_profil, handle_overtime, handle_free_day,handle_vacation
 from scheduler.views.excel_views import download_schedule, download_sihterica
 from scheduler.views.pdf_views import download_schedule_pdf,download_timesheet_pdf
 
@@ -22,6 +22,9 @@ urlpatterns = [
     path('get_employee_data/<int:employee_id>/', get_employee_data, name='get_employee_data'),
     path('delete_employee/<int:employee_id>/', delete_employee, name='delete_employee'),
     path('radnik_profil/<int:employee_id>/', radnik_profil, name='radnik_profil'),
+    path('handle_overtime/<int:employee_id>/', handle_overtime, name='handle_overtime'),
+    path('handle_free_day/<int:employee_id>/', handle_free_day, name='handle_free_day'),
+    path('handle_vacation/<int:employee_id>/', handle_vacation, name='handle_vacation'),
 
     # Other views
     path('register/', register, name='register'),
@@ -32,6 +35,7 @@ urlpatterns = [
     path('api/schedule/', api_schedule_data, name='api_schedule_data'),
     path('update_overtime_hours/', update_overtime_hours, name='update_overtime_hours'),
     path('get_workday_data/', get_workday_data, name='get_workday_data'),
+    path('delete_workday/', delete_workday, name='delete_workday'),
 
     # Document views
     path('documents/', documents_view, name='documents_view'), 

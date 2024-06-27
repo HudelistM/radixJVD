@@ -15,38 +15,57 @@
 </div>
 
 <body>
-    <div class="flex justify-between items-center mb-4">
-        <h2 class="text-lg font-semibold"><span class="text-xl text-red-500">{{ employees.count }}</span> Radnika</h2>
-
+    <div class="flex justify-between items-center mb-4 px-7">
+        <h2 class="text-lg font-semibold"><span class="text-xl text-red-500">{{ total_employees }}</span> Radnika</h2>
         <button class="modal-open bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-5 rounded-full">Dodaj novog
             radnika</button>
     </div>
 
-    <!-- Prikaz radnika -->
-    <div class=" items-center mb-4container mx-auto">
-        {% if employees %}
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {% for employee in employees %}
-            <div class="employee-card p-4 border rounded-lg cursor-pointer hover:bg-gray-100" data-href="{% url 'radnik_profil' employee.id %}">
-                <div class="flex justify-between">
-                    <div>
-                        <h3 class="text-xl font-semibold">{{ employee.name }} {{ employee.surname }}</h3>
-                        <p class="text-md text-gray-600">Pozicija: {{ employee.role }}</p>
-                    </div>
-                    <div class="flex flex-col items-center justify-start space-y-1">
-                        <button class="edit-button" data-id="{{ employee.id }}" title="Edit">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7 mr-2 border-gray-950 rounded-md hover:bg-red-500 transition-colors duration-300 hover:shadow-md hover:fill-white" viewBox="0 -960 960 960" fill="#434343"><path d="M160-400v-80h280v80H160Zm0-160v-80h440v80H160Zm0-160v-80h440v80H160Zm360 560v-123l221-220q9-9 20-13t22-4q12 0 23 4.5t20 13.5l37 37q8 9 12.5 20t4.5 22q0 11-4 22.5T863-380L643-160H520Zm300-263-37-37 37 37ZM580-220h38l121-122-18-19-19-18-122 121v38Zm141-141-19-18 37 37-18-19Z"/></svg>
-                        </button>
-                        <button class="delete-button" data-id="{{ employee.id }}" title="Delete">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7 mr-2 border-gray-950 rounded-md hover:bg-red-500 transition-colors duration-300 hover:shadow-md hover:fill-white" viewBox="0 -960 960 960" fill="#EA3323"><path d="M280-120q-33 0-56.5-23.5T200-200v-520h-40v-80h200v-40h240v40h200v80h-40v520q0 33-23.5 56.5T680-120H280Zm400-600H280v520h400v-520ZM360-280h80v-360h-80v360Zm160 0h80v-360h-80v360ZM280-720v520-520Z"/></svg>
-                        </button>
+    <div class="items-center mb-4 px-7 mx-auto">
+        <!-- Prikaz radnika po grupama -->
+        {% for group_id, employees in groups.items %}
+        <div class="mb-8">
+            <h3 class="text-left text-lg font-bold my-1">
+                {% if group_id == '1' %}
+                    Ured
+                {% elif group_id == '2' %}
+                    Grupa 1
+                {% elif group_id == '3' %}
+                    Grupa 2
+                {% elif group_id == '4' %}
+                    Grupa 3
+                {% elif group_id == '5' %}
+                    Grupa 4
+                {% elif group_id == '6' %}
+                    Grupa 5
+                {% else %}
+                    Nepoznata Grupa
+                {% endif %}
+            </h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {% for employee in employees %}
+                <div class="employee-card p-4 border rounded-lg cursor-pointer hover:bg-gray-100 transition duration-300 transform hover:scale-105" data-href="{% url 'radnik_profil' employee.id %}">
+                    <div class="flex justify-between items-center">
+                        <div>
+                            <h4 class="text-xl font-semibold">{{ employee.name }} {{ employee.surname }}</h4>
+                            <p class="text-lg text-gray-600">Pozicija: {{ employee.role }}</p>
+                        </div>
+                        <div class="flex flex-col items-center justify-start space-y-2">
+                            <button class="edit-button" data-id="{{ employee.id }}" title="Edit">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7 mr-2 border-gray-950 rounded-md hover:bg-red-500 transition-colors duration-300 hover:shadow-md hover:fill-white" viewBox="0 -960 960 960" fill="#434343"><path d="M160-400v-80h280v80H160Zm0-160v-80h440v80H160Zm0-160v-80h440v80H160Zm360 560v-123l221-220q9-9 20-13t22-4q12 0 23 4.5t20 13.5l37 37q8 9 12.5 20t4.5 22q0 11-4 22.5T863-380L643-160H520Zm300-263-37-37 37 37ZM580-220h38l121-122-18-19-19-18-122 121v38Zm141-141-19-18 37 37-18-19Z"/></svg>
+                            </button>
+                            <button class="delete-button" data-id="{{ employee.id }}" title="Delete">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7 mr-2 border-gray-950 rounded-md hover:bg-red-500 transition-colors duration-300 hover:shadow-md hover:fill-white" viewBox="0 -960 960 960" fill="#EA3323"><path d="M280-120q-33 0-56.5-23.5T200-200v-520h-40v-80h200v-40h240v40h200v80h-40v520q0 33-23.5 56.5T680-120H280Zm400-600H280v520h400v-520ZM360-280h80v-360h-80v360Zm160 0h80v-360h-80v360ZM280-720v520-520Z"/></svg>
+                            </button>
+                        </div>
                     </div>
                 </div>
+                {% endfor %}
             </div>
-            {% endfor %}
-            
         </div>
-        {% else %}
+        {% endfor %}
+        
+        {% if not groups %}
         <div class="text-center py-4">
             <p>Nema dostupnih radnika.</p>
         </div>

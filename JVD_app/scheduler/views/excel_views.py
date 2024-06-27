@@ -164,6 +164,8 @@ def download_sihterica(request):
     current_year = current_date.year
     days_in_month = monthrange(current_year, current_month)[1]
     
+    employees = Employee.objects.all().order_by('group')
+    
     output = BytesIO()
     workbook = xlsxwriter.Workbook(output, {'in_memory': True})
     worksheet = workbook.add_worksheet()
@@ -226,9 +228,7 @@ def download_sihterica(request):
 
     # Fill employee data
     row_idx = 3
-    employees = Employee.objects.all()
-    
-    
+
     for employee in employees:
         group_format = group_text_formats.get(employee.group, bold_format)
         worksheet.merge_range(row_idx, 0, row_idx + 1, 0, f"{employee.name} {employee.surname}", group_format)
@@ -243,16 +243,20 @@ def download_sihterica(request):
         # Iterate over each day of the month
         for day in range(1, days_in_month + 1):
             current_date = date(year=current_year, month=current_month, day=day)
-            work_day = WorkDay.objects.filter(employee=employee, date=current_date).first()
+            work_days = WorkDay.objects.filter(employee=employee, date=current_date)  # Fetch all workdays for the date
             weekday = current_date.weekday()
             base_cell_format = saturday_format if weekday == 5 else sunday_format if weekday == 6 else hours_format
 
-            if work_day:
-                day_hours_display = work_day.day_hours if work_day.day_hours != 0 else ''
-                night_hours_display = work_day.night_hours if work_day.night_hours != 0 else ''
+            if work_days.exists():
+                total_day_hours_for_day = sum(work_day.day_hours for work_day in work_days)
+                total_night_hours_for_day = sum(work_day.night_hours for work_day in work_days)
+                total_vacation_hours_for_day = sum(work_day.vacation_hours for work_day in work_days)
+
+                day_hours_display = total_day_hours_for_day if total_day_hours_for_day != 0 else ''
+                night_hours_display = total_night_hours_for_day if total_night_hours_for_day != 0 else ''
 
                 # Apply green text for vacation only on the 'RD' row and maintain weekend formatting
-                if work_day.vacation_hours > 0:
+                if total_vacation_hours_for_day > 0:
                     worksheet.write(row_idx, day + 1, '0', vacation_format)  # Green zero for RD row
                     worksheet.write(row_idx + 1, day + 1, night_hours_display, base_cell_format)  # Normal formatting for RN row
                 else:
@@ -260,14 +264,14 @@ def download_sihterica(request):
                     worksheet.write(row_idx + 1, day + 1, night_hours_display, base_cell_format)
 
                 # Update aggregates
-                total_day_hours += work_day.day_hours if isinstance(work_day.day_hours, int) else 0
-                total_night_hours += work_day.night_hours if isinstance(work_day.night_hours, int) else 0
+                total_day_hours += total_day_hours_for_day
+                total_night_hours += total_night_hours_for_day
                 if weekday == 5:
-                    total_saturday_hours += work_day.day_hours if isinstance(work_day.day_hours, int) else 0
+                    total_saturday_hours += total_day_hours_for_day
                 elif weekday == 6:
-                    total_sunday_hours += work_day.day_hours if isinstance(work_day.day_hours, int) else 0
-                total_holiday_hours += work_day.holiday_hours if isinstance(work_day.holiday_hours, int) else 0
-                total_sick_leave_hours += work_day.sick_leave_hours if isinstance(work_day.sick_leave_hours, int) else 0
+                    total_sunday_hours += total_day_hours_for_day
+                total_holiday_hours += sum(work_day.holiday_hours for work_day in work_days)
+                total_sick_leave_hours += sum(work_day.sick_leave_hours for work_day in work_days)
             else:
                 worksheet.write(row_idx, day + 1, '', base_cell_format)
                 worksheet.write(row_idx + 1, day + 1, '', base_cell_format)
@@ -503,6 +507,60 @@ def download_sihterica(request):
         worksheet.write(agg_vacation_start_row, agg_start_col+4, new_cumulative_vacation_days, hours_format)  # New cumulative in days
 
         agg_vacation_start_row += 1
+        
+    # -----------------------Aggregate table for overtime hours-----------------------------
+
+    agg_overtime_start_row = agg_vacation_start_row + 2  # Space after the vacation table
+
+    # Headers for the overtime hours table
+    overtime_headers = [
+        'Prezime i ime', 'rb', 'Prek. pripreme', 'Prek. USLUGA priprema', 
+        'Prek. višak fonda', 'Prekovremeno slobodan dan', 
+        'Prekovremeno slobodan dan usluga', 'Ukupno prek.', 'Ukupno prek. USLUGA'
+    ]
+    worksheet.merge_range(
+        agg_overtime_start_row, agg_start_col, agg_overtime_start_row, 
+        agg_start_col + len(overtime_headers) - 1, 'EVIDENCIJA PREKOVREMENIH SATI', title_format
+    )
+    worksheet.write_row(agg_overtime_start_row + 1, agg_start_col, overtime_headers, small_header_format)
+    agg_overtime_start_row += 2
+
+    # Populate the overtime hours table
+    for idx, employee in enumerate(employees):
+        # Retrieve overtime data for the current month
+        work_days = WorkDay.objects.filter(employee=employee, date__year=current_year, date__month=current_month)
+        total_overtime_preparation = work_days.aggregate(Sum('overtime_hours'))['overtime_hours__sum'] or 0
+        total_overtime_service = work_days.aggregate(Sum('overtime_service'))['overtime_service__sum'] or 0
+        total_overtime_excess_fond = work_days.aggregate(Sum('overtime_excess_fond'))['overtime_excess_fond__sum'] or 0
+        total_overtime_free_day = work_days.aggregate(Sum('overtime_free_day'))['overtime_free_day__sum'] or 0
+        total_overtime_free_day_service = work_days.aggregate(Sum('overtime_free_day_service'))['overtime_free_day_service__sum'] or 0
+
+        # Calculate total overtime
+        total_overtime = total_overtime_preparation + total_overtime_service + total_overtime_excess_fond
+        total_overtime_service_total = total_overtime_free_day + total_overtime_free_day_service
+
+        worksheet.write(agg_overtime_start_row, agg_start_col, f"{employee.surname} {employee.name}", white_format)
+        worksheet.write(agg_overtime_start_row, agg_start_col + 1, idx + 1, white_format)
+        worksheet.write(agg_overtime_start_row, agg_start_col + 2, total_overtime_preparation, hours_format)
+        worksheet.write(agg_overtime_start_row, agg_start_col + 3, total_overtime_service, hours_format)
+        worksheet.write(agg_overtime_start_row, agg_start_col + 4, total_overtime_excess_fond, hours_format)
+        worksheet.write(agg_overtime_start_row, agg_start_col + 5, total_overtime_free_day, hours_format)
+        worksheet.write(agg_overtime_start_row, agg_start_col + 6, total_overtime_free_day_service, hours_format)
+        worksheet.write(agg_overtime_start_row, agg_start_col + 7, total_overtime, hours_format)
+        worksheet.write(agg_overtime_start_row, agg_start_col + 8, total_overtime_service_total, hours_format)
+
+        agg_overtime_start_row += 1
+
+    # Add "Ukupno" row for the overtime table
+    first_overtime_data_row = agg_overtime_start_row - len(employees)
+    worksheet.write(agg_overtime_start_row, agg_start_col, 'Ukupno', header_format)
+
+    # Writing sum formulas for the overtime table
+    for col_offset in range(1, 10):  # Adjust column range to match the new overtime columns
+        column_letter_value = column_letter(agg_start_col + col_offset)
+        formula_range = f"{column_letter_value}{first_overtime_data_row + 1}:{column_letter_value}{agg_overtime_start_row}"
+        worksheet.write_formula(agg_overtime_start_row, agg_start_col + col_offset, f"=SUM({formula_range})", total_format)
+
 
     workbook.close()
     output.seek(0)
