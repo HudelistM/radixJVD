@@ -1,7 +1,162 @@
 {% extends "base.html" %}
+{% load static %}
 {% block content %}
-<div class="container">
-    <h1>Profil radnika</h1>
-    <p>Ime: {{ employee.name }}</p>
+<div class="container mx-auto p-4">
+    <h1 class="text-2xl font-bold mb-4">Profil Radnika</h1>
+    <div class="mb-4 p-4 border rounded-lg shadow-md">
+        <p class="text-lg">Ime: {{ employee.name }} {{ employee.surname }}</p>
+        <p class="text-lg">Pozicija: {{ employee.role }}</p>
+        <p class="text-lg">Grupa: 
+            {% if employee.group == '1' %}
+                Ured
+            {% elif employee.group == '2' %}
+                Grupa 1
+            {% elif employee.group == '3' %}
+                Grupa 2
+            {% elif employee.group == '4' %}
+                Grupa 3
+            {% elif employee.group == '5' %}
+                Grupa 4
+            {% elif employee.group == '6' %}
+                Grupa 5
+            {% else %}
+                Nepoznata Grupa
+            {% endif %}
+        </p>
+        <p class="text-lg">Slobodni dani po izboru: {{ free_days_choice_count }}/2</p>
+    </div>
+
+    <!-- Overtime Form -->
+    <div x-data="{ open: false }" class="mb-6 p-4 border rounded-lg shadow-md">
+        <h2 @click="open = !open" class="text-xl font-semibold mb-4 cursor-pointer">Dodaj Prekovremeni Rad</h2>
+        <div x-show="open" x-transition>
+            <form method="POST" action="{% url 'handle_overtime' employee.id %}">
+                {% csrf_token %}
+                <div class="mb-4">
+                    <label for="date" class="block text-sm font-medium text-gray-700">Datum:</label>
+                    <input type="date" name="date" id="date" class="mt-1 block w-full py-2 px-3 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" required>
+                </div>
+                <div class="mb-4">
+                    <label for="hours" class="block text-sm font-medium text-gray-700">Broj sati:</label>
+                    <input type="number" name="hours" id="hours" class="mt-1 block w-full py-2 px-3 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" required>
+                </div>
+                <div class="mb-4">
+                    <label for="overtime_type" class="block text-sm font-medium text-gray-700">Tip prekovremenog rada:</label>
+                    <select name="overtime_type" id="overtime_type" class="mt-1 block w-full py-2 px-3 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                        <option value="overtime_free_day">Prekovremeni Slobodan Dan</option>
+                        <option value="overtime_free_day_service">Prekovremeni Slobodan Dan Usluga</option>
+                    </select>
+                </div>
+                <div class="mb-4">
+                    <label for="shift_type" class="block text-sm font-medium text-gray-700">Smjena:</label>
+                    <select name="shift_type" id="shift_type" class="mt-1 block w-full py-2 px-3 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                        {% for shift in shift_types %}
+                        <option value="{{ shift.id }}">{{ shift.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <button type="submit" class="px-4 py-2 bg-blue-500 hover:bg-blue-700 text-white font-bold rounded-lg shadow">Dodaj Prekovremene</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Free Day Form -->
+    <div x-data="{ open: false, isArticle39: false }" class="mb-6 p-4 border rounded-lg shadow-md">
+        <h2 @click="open = !open" class="text-xl font-semibold mb-4 cursor-pointer">Dodaj Slobodan Dan</h2>
+        <div x-show="open" x-transition>
+            <form method="POST" action="{% url 'handle_free_day' employee.id %}">
+                {% csrf_token %}
+                <div class="mb-4">
+                    <label for="date" class="block text-sm font-medium text-gray-700">Datum:</label>
+                    <input type="date" name="date" id="date" class="mt-1 block w-full py-2 px-3 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" x-bind:disabled="isArticle39">
+                </div>
+                <div class="mb-4" x-show="isArticle39" x-transition>
+                    <label for="date_start" class="block text-sm font-medium text-gray-700">Početni datum:</label>
+                    <input type="date" name="date_start" id="date_start" class="mt-1 block w-full py-2 px-3 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                </div>
+                <div class="mb-4" x-show="isArticle39" x-transition>
+                    <label for="date_end" class="block text-sm font-medium text-gray-700">Krajnji datum:</label>
+                    <input type="date" name="date_end" id="date_end" class="mt-1 block w-full py-2 px-3 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                </div>
+                <div class="mb-4">
+                    <label for="is_article_39" class="block text-sm font-medium text-gray-700">Tip slobodnog dana:</label>
+                    <select name="is_article_39" id="is_article_39" class="mt-1 block w-full py-2 px-3 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" x-on:change="isArticle39 = $event.target.value === 'true'">
+                        <option value="false">Po izboru</option>
+                        <option value="true">Članak 39</option>
+                    </select>
+                </div>
+                <div class="mb-4">
+                    <label for="shift_type" class="block text-sm font-medium text-gray-700">Smjena</label>
+                    <select name="shift_type" id="shift_type" class="mt-1 block w-full py-2 px-3 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                        {% for shift in shift_types %}
+                        {% if shift.name == 'Slobodan Dan 1' or shift.name == 'Slobodan Dan 2' %}
+                        <option value="{{ shift.id }}">{{ shift.name }}</option>
+                        {% endif %}
+                        {% endfor %}
+                    </select>
+                </div>
+                <button type="submit" class="px-4 py-2 bg-blue-500 hover:bg-blue-700 text-white font-bold rounded-lg shadow">Dodaj Slobodan Dan</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Current Free Days by Choice -->
+   <!-- <div class="mb-6 p-4 border rounded-lg shadow-md">
+        <h2 class="text-xl font-semibold mb-4">Slobodni Dani po Izboru</h2>
+        <ul class="space-y-2">
+            {% for free_day in free_days_by_choice %}
+            <li class="bg-white p-4 rounded-lg shadow">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-gray-700">{{ free_day.date|date:"d.m.Y" }}</p>
+                    </div>
+                </div>
+            </li>
+            {% empty %}
+            <li class="bg-white p-4 rounded-lg shadow">
+                <p class="text-gray-700">Nema slobodnih dana po izboru.</p>
+            </li>
+            {% endfor %}
+        </ul>
+    </div>-->
+        <!-- Vacation Form -->
+        <div x-data="{ open: false }" class="mb-6 p-4 border rounded-lg shadow-md">
+            <h2 @click="open = !open" class="text-xl font-semibold mb-4 cursor-pointer">Dodaj Godišnji Odmor</h2>
+            <div x-show="open" x-transition>
+                <form method="POST" action="{% url 'handle_vacation' employee.id %}">
+                    {% csrf_token %}
+                    <div class="mb-4">
+                        <label for="start_date" class="block text-sm font-medium text-gray-700">Početni datum:</label>
+                        <input type="date" name="start_date" id="start_date" class="mt-1 block w-full py-2 px-3 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" required>
+                    </div>
+                    <div class="mb-4">
+                        <label for="end_date" class="block text-sm font-medium text-gray-700">Krajnji datum:</label>
+                        <input type="date" name="end_date" id="end_date" class="mt-1 block w-full py-2 px-3 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" required>
+                    </div>
+                    <button type="submit" class="px-4 py-2 bg-blue-500 hover:bg-blue-700 text-white font-bold rounded-lg shadow">Dodaj Godišnji Odmor</button>
+                </form>
+            </div>
+        </div>
+    
+    <!-- Vacation List -->
+    <div class="mb-6 p-4 border rounded-lg shadow-md">
+        <h2 class="text-xl font-semibold mb-4">Godišnji Odmori</h2>
+        <ul class="list-decimal list-inside space-y-2">
+            {% for vacation in vacations %}
+            <li class="bg-white p-4 rounded-lg shadow">
+                <div>
+                    <p class="text-gray-700"><strong>Od:</strong> {{ vacation.start_date|date:"d.m.Y" }} <strong>Do:</strong> {{ vacation.end_date|date:"d.m.Y" }}</p>
+                </div>
+            </li>
+            {% empty %}
+            <li class="bg-white p-4 rounded-lg shadow">
+                <p class="text-gray-700">Nema dodanih godišnjih odmora.</p>
+            </li>
+            {% endfor %}
+        </ul>
+    </div>
 </div>
+
+
 {% endblock %}
+

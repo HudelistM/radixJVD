@@ -1,8 +1,7 @@
 let drake = null;
 document.addEventListener('DOMContentLoaded', function() {
-    console.log(document.getElementById('employees-list'));
-    console.log(document.querySelectorAll('.dropzone'));
     initDragAndDrop();
+    fetchAndRenderSchedule();
 });
 
 function initDragAndDrop() {
@@ -38,7 +37,9 @@ function initDragAndDrop() {
   
     drake.on('drop', function(el, target, source, sibling) {
         if (target === employeeList) return; // Exit if dropping back to the employee list
-    
+        
+        el.classList.add('employee-block', `group-${el.getAttribute('data-group')}`, 'p-2', 'border', 'border-gray-300', 'rounded-md', 'truncate');
+
         const employeeId = el.getAttribute('data-employee-id');
         const date = target.getAttribute('data-date');
         const shiftTypeId = target.getAttribute('data-shift-type-id'); // Extract shift type ID from the target dropzone
@@ -48,7 +49,7 @@ function initDragAndDrop() {
         let originalShiftTypeId = action === 'move' ? source.getAttribute('data-shift-type-id') : shiftTypeId;
     
         updateSchedule(employeeId, shiftTypeId, date, action, originalDate, originalShiftTypeId);
-    
+        
         if (source === employeeList) {
             // When dragging from the employee list (creating a clone)
             let clonedEl = el.cloneNode(true);
@@ -135,26 +136,26 @@ function initDragAndDrop() {
 
 // Function to fetch schedule data and update the UI accordingly
 function fetchAndRenderSchedule() {
-    // Assuming your schedule grid has an attribute 'data-week-start' in ISO format
-    let weekStart = moment.tz(document.getElementById('schedule-grid').getAttribute('data-week-start'), "Europe/Berlin");
-    let weekEnd = weekStart.clone().add(6, 'days'); // Get the end of the week
+    // Fetch the start of the month from the schedule grid attribute
+    let monthStart = document.getElementById('schedule-grid').getAttribute('data-month-start');
+    let startDate = moment(monthStart); // Assuming you use moment.js
+    let endDate = moment(startDate).endOf('month');
 
-    const startFormat = weekStart.format('YYYY-MM-DD');
-    const endFormat = weekEnd.format('YYYY-MM-DD');
+    const startFormat = startDate.format('YYYY-MM-DD');
+    const endFormat = endDate.format('YYYY-MM-DD');
 
     fetch(`/api/schedule/?week_start=${startFormat}&week_end=${endFormat}`)
     .then(response => response.json())
     .then(data => {
         document.querySelectorAll('.dropzone').forEach(dz => dz.innerHTML = ''); // Clear existing blocks
-        
         data.forEach(({ date, shift_type_id, employees }) => {
             const cell = document.querySelector(`.dropzone[data-shift-type-id="${shift_type_id}"][data-date="${date}"]`);
             if (!cell) {
                 console.error('Dropzone not found for date:', date, 'and shift type ID:', shift_type_id);
-                return; // Skip this iteration if the cell doesn't exist
+                return;
             }
             employees.forEach(employee => {
-                const employeeBlock = createEmployeeBlock(employee,date,shift_type_id);
+                const employeeBlock = createEmployeeBlock(employee, date, shift_type_id);
                 cell.appendChild(employeeBlock);
             });
         });
@@ -166,25 +167,23 @@ function fetchAndRenderSchedule() {
 
 
 function createEmployeeBlock(employee, date, shiftTypeId) {
-    if (employee.group === '1') return null;
-  
     const div = document.createElement('div');
     div.className = `employee-block group-${employee.group}`;
     div.setAttribute('data-employee-id', employee.id);
     div.setAttribute('data-group', employee.group);
-    div.setAttribute('data-shift-type-id', shiftTypeId); // Store shift type id in each employee block
-  
+    div.setAttribute('data-shift-type-id', shiftTypeId);
+
     const nameSpan = document.createElement('span');
     nameSpan.className = 'employee-name';
     nameSpan.textContent = `${employee.surname} ${employee.name.charAt(0)}. (${employee.group})`;
     div.appendChild(nameSpan);
-  
+
     const cogButton = document.createElement('button');
     cogButton.className = 'cog-btn';
     cogButton.innerHTML = '⚙️';
-    cogButton.onclick = () => openOvertimeModal(employee.id, date, shiftTypeId); // Pass shift type to the modal
+    cogButton.onclick = () => openOvertimeModal(employee.id, date, shiftTypeId);
     div.appendChild(cogButton);
-  
+
     const deleteButton = document.createElement('button');
     deleteButton.className = 'delete-btn';
     deleteButton.textContent = '❌';
@@ -192,10 +191,9 @@ function createEmployeeBlock(employee, date, shiftTypeId) {
         deleteScheduleEntry(employee.id, date, shiftTypeId, `employee-block-${employee.id}-${date}-${shiftTypeId}`);
     };
     div.appendChild(deleteButton);
-  
+
     return div;
 }
-
 
 
 function openOvertimeModal(employeeId, date, shiftTypeId) {
@@ -215,6 +213,7 @@ function openOvertimeModal(employeeId, date, shiftTypeId) {
     .then(data => {
         if (data.status === 'success') {
             document.getElementById('overtime-hours').value = data.data.overtime_hours || 0;
+            document.getElementById('overtime-hours-service').value = data.data.overtime_service || 0;
             document.getElementById('day-hours').value = data.data.day_hours || 0;
             document.getElementById('night-hours').value = data.data.night_hours || 0;
         } else {
@@ -239,6 +238,7 @@ function submitOvertime() {
   const date = document.getElementById('work-date').value;
   const shiftTypeId = document.getElementById('shift-type-id').value;
   const overtimeHours = document.getElementById('overtime-hours').value;
+  const overtimeHoursService = document.getElementById('overtime-hours-service').value;
   const dayHours = document.getElementById('day-hours').value;
   const nightHours = document.getElementById('night-hours').value;
 
@@ -247,6 +247,9 @@ function submitOvertime() {
   if (overtimeHours !== '') {
       requestData.overtime_hours = parseFloat(overtimeHours);
   }
+  if (overtimeHoursService !== '') {
+    requestData.overtime_service = parseFloat(overtimeHoursService);
+}
   if (dayHours !== '') {
       requestData.day_hours = parseFloat(dayHours);
   }

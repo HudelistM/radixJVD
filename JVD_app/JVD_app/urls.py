@@ -5,7 +5,7 @@ from scheduler import views
 
 # Corrected imports
 from scheduler.views import radnici,landingPage, register, documents_view, schedule_view, api_schedule_data, update_overtime_hours, get_workday_data, update_schedule, delete_workday
-from scheduler.views.worker_views import add_or_edit_employee, get_employee_data, delete_employee, radnik_profil
+from scheduler.views.worker_views import add_or_edit_employee, get_employee_data, delete_employee, radnik_profil, handle_overtime, handle_free_day,handle_vacation
 from scheduler.views.excel_views import download_schedule, download_sihterica
 from scheduler.views.pdf_views import download_schedule_pdf,download_timesheet_pdf
 
@@ -22,6 +22,9 @@ urlpatterns = [
     path('get_employee_data/<int:employee_id>/', get_employee_data, name='get_employee_data'),
     path('delete_employee/<int:employee_id>/', delete_employee, name='delete_employee'),
     path('radnik_profil/<int:employee_id>/', radnik_profil, name='radnik_profil'),
+    path('handle_overtime/<int:employee_id>/', handle_overtime, name='handle_overtime'),
+    path('handle_free_day/<int:employee_id>/', handle_free_day, name='handle_free_day'),
+    path('handle_vacation/<int:employee_id>/', handle_vacation, name='handle_vacation'),
 
     # Other views
     path('register/', register, name='register'),

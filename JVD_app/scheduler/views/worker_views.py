@@ -12,7 +12,7 @@ from django.shortcuts import get_object_or_404
 
 # Your app imports
 from ..forms import UserRegisterForm, EmployeeForm
-from ..models import ScheduleEntry, ShiftType, Employee, WorkDay
+from ..models import ScheduleEntry, ShiftType, Employee, WorkDay, FreeDay, Vacation
 
 from datetime import date, timedelta, datetime
 import json
@@ -87,8 +87,12 @@ def add_or_edit_employee(request):
 
 def handle_vacation_schedule(employee, start_date, end_date):
     if start_date and end_date:
-        start_date = parse_date(start_date)
-        end_date = parse_date(end_date)
+        # Check if the inputs are already date objects
+        if isinstance(start_date, str):
+            start_date = parse_date(start_date)
+        if isinstance(end_date, str):
+            end_date = parse_date(end_date)
+        
         shift_type_vacation = ShiftType.objects.get(name="Godišnji odmor")  # Ensure this shift type exists
         current_date = start_date
         day_count = 0
@@ -119,6 +123,7 @@ def handle_vacation_schedule(employee, start_date, end_date):
                 work_day, work_created = WorkDay.objects.get_or_create(
                     employee=employee, 
                     date=current_date,
+                    shift_type=shift_type_vacation,  # Ensure shift_type is set
                     defaults={'vacation_hours': hours}
                 )
                 if not work_created and work_day.vacation_hours != hours:
@@ -129,6 +134,121 @@ def handle_vacation_schedule(employee, start_date, end_date):
             current_date += timedelta(days=1)
             day_count += 1
 
+
+
 def radnik_profil(request, employee_id):
     employee = get_object_or_404(Employee, id=employee_id)
-    return render(request, 'scheduler/radnik_profil.html', {'employee': employee})
+    shift_types = ShiftType.objects.all()
+    free_days_choice_count = FreeDay.objects.filter(employee=employee, is_article_39=False).count()
+    free_days_by_choice = FreeDay.objects.filter(employee=employee, is_article_39=False)
+    vacations = Vacation.objects.filter(employee=employee)
+    return render(request, 'scheduler/radnik_profil.html', {
+        'employee': employee,
+        'shift_types': shift_types,
+        'free_days_choice_count': free_days_choice_count,
+        'free_days_by_choice': free_days_by_choice,
+        'vacations': vacations,
+    })
+
+def handle_vacation(request, employee_id):
+    employee = get_object_or_404(Employee, id=employee_id)
+    start_date = request.POST.get('start_date')
+    end_date = request.POST.get('end_date')
+    
+    # Convert start_date and end_date to date objects if they are strings
+    if isinstance(start_date, str):
+        start_date = parse_date(start_date)
+    if isinstance(end_date, str):
+        end_date = parse_date(end_date)
+    
+    # Call the existing handle_vacation_schedule function
+    handle_vacation_schedule(employee, start_date, end_date)
+    
+    # Save the vacation period
+    Vacation.objects.create(employee=employee, start_date=start_date, end_date=end_date)
+    
+    return redirect('radnik_profil', employee_id=employee_id)
+
+def handle_overtime(request, employee_id):
+    employee = get_object_or_404(Employee, id=employee_id)
+    date = parse_date(request.POST.get('date'))
+    hours = float(request.POST.get('hours'))
+    overtime_type = request.POST.get('overtime_type')
+    shift_type_id = request.POST.get('shift_type')
+    shift_type = ShiftType.objects.get(id=shift_type_id)
+    
+    work_day, created = WorkDay.objects.get_or_create(employee=employee, date=date, shift_type=shift_type)
+    
+    # Update specific overtime fields based on type
+    if overtime_type == 'overtime_free_day':
+        work_day.overtime_free_day += hours
+    elif overtime_type == 'overtime_free_day_service':
+        work_day.overtime_free_day_service += hours
+
+    # Decrement on_call_hours by the added overtime hours if needed
+    #work_day.on_call_hours = max(0, work_day.on_call_hours - hours)
+    work_day.save()
+    
+    return redirect('radnik_profil', employee_id=employee_id)
+
+
+def handle_free_day(request, employee_id):
+    employee = get_object_or_404(Employee, id=employee_id)
+    is_article_39 = request.POST.get('is_article_39') == 'true'
+    if not is_article_39:
+        free_days_choice_count = FreeDay.objects.filter(employee=employee, is_article_39=False).count()
+        if free_days_choice_count >= 2:
+            messages.error(request, 'Radnik već ima 2 slobodna dana po izboru!')
+            return redirect('radnik_profil', employee_id=employee_id)
+    
+    shift_type_id = request.POST.get('shift_type')
+    shift_type = get_object_or_404(ShiftType, id=shift_type_id)
+
+    if is_article_39:
+        start_date = parse_date(request.POST.get('date_start'))
+        end_date = parse_date(request.POST.get('date_end'))
+
+        current_date = start_date
+        day_count = 0
+        while current_date <= end_date:
+            free_day, created = FreeDay.objects.get_or_create(employee=employee, date=current_date, is_article_39=is_article_39)
+            work_day, created = WorkDay.objects.get_or_create(employee=employee, date=current_date, shift_type=shift_type)
+
+            # Determine hours based on the free day shift pattern
+            if day_count % 4 == 0:  # Day 1: First Shift
+                hours = 12
+            elif day_count % 4 == 1:  # Day 2: Night Shift starts
+                hours = 5
+            elif day_count % 4 == 2:  # Day 3: Continuation of Night Shift
+                hours = 7
+            else:  # Day 4: Free day
+                hours = 0
+
+            work_day.article39_hours = hours
+            work_day.save()
+
+            # Create a ScheduleEntry for the free day
+            schedule, created = ScheduleEntry.objects.get_or_create(
+                date=current_date,
+                shift_type=shift_type
+            )
+            if created or not schedule.employees.filter(id=employee.id).exists():
+                schedule.employees.add(employee)
+
+            current_date += timedelta(days=1)
+            day_count += 1
+    else:
+        date = parse_date(request.POST.get('date'))
+        free_day, created = FreeDay.objects.get_or_create(employee=employee, date=date, is_article_39=is_article_39)
+        work_day, created = WorkDay.objects.get_or_create(employee=employee, date=date, shift_type=shift_type)
+        work_day.save()
+
+        # Create a ScheduleEntry for the free day
+        schedule, created = ScheduleEntry.objects.get_or_create(
+            date=date,
+            shift_type=shift_type
+        )
+        if created or not schedule.employees.filter(id=employee.id).exists():
+            schedule.employees.add(employee)
+    
+    return redirect('radnik_profil', employee_id=employee_id)

@@ -99,42 +99,39 @@ def radnici(request):
 #--------------------Funkcije za CRUD rasporeda i sati---------------------
 #--------------------------------------------------------------------------
 
+def get_month_dates(start_date):
+    # start_date is assumed to be the first day of the month
+    month_length = monthrange(start_date.year, start_date.month)[1]
+    return [start_date + timedelta(days=i) for i in range(month_length)]
+
 def schedule_view(request):
-    # Default start_date to the current week's Monday if no parameter is passed
-    start_date_str = request.GET.get('week_start')
-    if start_date_str:
-        start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
+    # Fetch the month's start date from the request, default to current month's start if not provided
+    month_start_str = request.GET.get('month_start')
+    if month_start_str:
+        month_start = datetime.strptime(month_start_str, '%Y-%m-%d').date()
     else:
         today = date.today()
-        start_date = today - timedelta(days=today.weekday())  # Ensure we start on Monday
-    
-    week_dates = get_week_dates(start_date)
+        month_start = date(today.year, today.month, 1)  # Start of the current month
+
+    month_dates = get_month_dates(month_start)
 
     shift_types = ShiftType.objects.all()
 
-    # Construct the schedule data structure
-    # We'll use the date as a string and the shift_type ID to identify each cell
+    # Construct the schedule data structure for the month
     schedule_data = {}
-    for day in week_dates:
+    for day in month_dates:
         day_key = day.strftime('%Y-%m-%d')
         schedule_data[day_key] = {}
         for shift_type in shift_types:
-            # Get the first schedule entry for this day and shift_type or None if it doesn't exist
             entry = ScheduleEntry.objects.filter(date=day, shift_type=shift_type).first()
             schedule_data[day_key][shift_type.id] = entry
-    #print(schedule_data)
 
     context = {
-        'week_dates': week_dates,
+        'month_dates': month_dates,
         'shift_types': shift_types,
         'schedule_data': schedule_data,
         'employees': Employee.objects.all(),
     }
-    if is_ajax(request):
-        # Render only the schedule part of the page for AJAX requests
-        schedule_grid_html = render_to_string('scheduler/scheduler_grid_inner.html', context, request)
-        return HttpResponse(schedule_grid_html)
-
     return render(request, 'scheduler/schedule_grid.html', context)
 
 # New view function to serve schedule data as JSON
@@ -176,20 +173,25 @@ def update_overtime_hours(request):
         shift_type = ShiftType.objects.get(id=shift_type_id)  # Retrieve the shift type object
 
         overtime_hours = float(data.get('overtime_hours', 0) or 0)
+        overtime_hours_service = float(data.get('overtime_service', 0) or 0)
         day_hours = float(data.get('day_hours', 0) or 0)
         night_hours = float(data.get('night_hours', 0) or 0)
 
         work_day, created = WorkDay.objects.get_or_create(
             employee_id=employee_id, date=date, shift_type=shift_type
         )
+        print (overtime_hours_service)
         
         if 'overtime_hours' in data:
             work_day.on_call_hours = max(work_day.on_call_hours - overtime_hours, 0)
             work_day.overtime_hours += overtime_hours
+        if 'overtime_service' in data:
+            work_day.on_call_hours = max(work_day.on_call_hours - overtime_hours_service, 0)
+            work_day.overtime_service += overtime_hours_service
         if 'day_hours' in data:
-            work_day.day_hours += day_hours
+            work_day.day_hours = day_hours
         if 'night_hours' in data:
-            work_day.night_hours += night_hours
+            work_day.night_hours = night_hours
 
         work_day.save()
 
@@ -423,3 +425,4 @@ def update_schedule(request):
     except Exception as e:
         logger.error(f"Exception in update_schedule: {str(e)}")
         return JsonResponse({'error': 'Server error', 'details': str(e)}, status=500)
+    
