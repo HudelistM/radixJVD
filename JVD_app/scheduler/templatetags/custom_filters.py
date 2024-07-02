@@ -40,3 +40,16 @@ def move_shifts_to_end(shift_types, shift_names_to_move):
     normal_shifts = [s for s in shift_types if s.name not in shift_names_to_move]
     shifted_to_end = [s for s in shift_types if s.name in shift_names_to_move]
     return normal_shifts + shifted_to_end
+
+@register.filter(name='translate_days')
+def translate_days(day):
+    days = {
+        'Mon': 'Pon',
+        'Tue': 'Uto',
+        'Wed': 'Sri',
+        'Thu': 'Čet',
+        'Fri': 'Pet',
+        'Sat': 'Sub',
+        'Sun': 'Ned'
+    }
+    return days.get(day, day)

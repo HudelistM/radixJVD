@@ -34,6 +34,8 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+def playground(request):
+    return render(request, "scheduler/playground.html")
 
 
 def is_ajax(request):
@@ -131,6 +133,7 @@ def schedule_view(request):
         'shift_types': shift_types,
         'schedule_data': schedule_data,
         'employees': Employee.objects.all(),
+        'schedule_view': True,
     }
     return render(request, 'scheduler/schedule_grid.html', context)
 
@@ -297,12 +300,19 @@ def calculate_shift_hours(employee, shift_type, date):
             shift_hours['day'] += 3
             shift_hours['night'] += 2
 
+
             next_day_entry.night_hours = max(next_day_entry.night_hours + 6, 6)
             next_day_entry.day_hours = max(next_day_entry.day_hours + 1, 1)
 
         elif shift_type.category == '2.smjena priprema':
             shift_hours['on_call'] += 5
             next_day_entry.on_call_hours = max(next_day_entry.on_call_hours + 7, 7)
+        
+        # Calculate weekend hours for the next day
+        if next_day.weekday() == 5:
+            next_day_entry.saturday_hours += next_day_entry.night_hours + next_day_entry.day_hours
+        elif next_day.weekday() == 6:
+            next_day_entry.sunday_hours += next_day_entry.night_hours + next_day_entry. day_hours
 
         next_day_entry.save()  # Save changes to the next day entry only if created or modified
 
@@ -322,6 +332,7 @@ def calculate_shift_hours(employee, shift_type, date):
         shift_hours['saturday'] = shift_hours['day'] + shift_hours['night']
     elif date.weekday() == 6:
         shift_hours['sunday'] = shift_hours['day'] + shift_hours['night']
+
 
     return shift_hours
 
