@@ -104,7 +104,6 @@ class ShiftType(models.Model):
 
 
 class WorkDay(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     employee = models.ForeignKey(Employee, on_delete=models.CASCADE)
     date = models.DateField()
     shift_type = models.ForeignKey(ShiftType, on_delete=models.CASCADE)

@@ -1,7 +1,6 @@
 {% load custom_templates %}
 {% load custom_filters %}
 
-
 <div id="overtime-dialog" class="hidden fixed inset-0 items-center flex justify-center bg-black bg-opacity-50 z-50">
   <div class="bg-white p-6 rounded-lg shadow-lg w-1/3 max-w-lg">
       <h2 class="text-xl mb-4">Unesite prekovremene sate</h2>
@@ -31,27 +30,35 @@
   <table class="min-w-full table-auto">
     <thead class="sticky top-0 bg-gray-100 z-50">
       <tr>
-        <th class="px-4 py-2 border min-w-[120px] text-center">Date</th>
+        <th class="px-2 py-1 border min-w-[120px] text-center">Datum</th>
         {% for shift_type in shift_types %}
-          <th class="px-4 py-3 border min-w-[160px]">{{ shift_type.name }}</th>
+          <th class="px-2 py-1 border min-w-[120px] text-center">{{ shift_type.name }}</th>
         {% endfor %}
       </tr>
     </thead>
     <tbody>
       {% for day in month_dates %}
-        <tr class="hover:bg-gray-50">
-          <td class="px-4 py-3 border text-center">
-            <div class="font-bold text-center">{{ day|date:"D" }}</div> <!-- Bold for day -->
+        {% with weekday=day|date:"w" %}
+        {% if day|date:"W" != previous_week %}
+        <tr class="week-divider"></tr>
+        {% endif %}
+        <tr class="hover:bg-gray-50 {% if weekday == '0' %} bg-yellow-100 {% elif weekday == '6' %} bg-green-100 {% endif %}">
+          <td class="px-2 py-1 border text-center">
+            <div class="font-bold text-center">{{ day|date:"D"|translate_days }}</div> <!-- Use translate_days filter -->
             <div class="mt-1 text-center">{{ day|date:"d.m.Y" }}</div> <!-- Margin-top for spacing -->
           </td>
           {% for shift_type in shift_types %}
-            <td class="px-4 py-3 border min-w-[160px] dropzone bg-white p-2 rounded border-gray-400 min-h-[50px]" data-shift-type-id="{{ shift_type.id }}" data-date="{{ day|date:'Y-m-d' }}">
+            <td class="px-2 py-1 border min-w-[120px] dropzone bg-white p-1 rounded border-gray-400 min-h-[40px]" data-shift-type-id="{{ shift_type.id }}" data-date="{{ day|date:'Y-m-d' }}">
               {% with day_str=day|date:"Y-m-d" %}
                 {% with schedule_entry=schedule_data|get_item:day_str|get_item:shift_type.id %}
                   {% if schedule_entry %}
                     {% for employee in schedule_entry.employees.all %}
-                      <div class="employee-block group-{{ employee.group }} p-2 border border-gray-300 rounded-md truncate" id="employee-block-{{ employee.id }}-{{ day|date:'Y-m-d' }}-{{ shift_type.id }}" data-employee-id="{{ employee.id }}" data-group="{{ employee.group }}" data-shift-type-id="{{ shift_type.id }}">
-                        <span class="employee-name truncate text-sm">{{ employee.name }} {{ employee.surname }}</span>
+                      <div class="employee-block group-{{ employee.group }} p-1 border border-gray-300 rounded-md truncate" 
+                          id="employee-block-{{ employee.id }}-{{ day|date:'Y-m-d' }}-{{ shift_type.id }}" 
+                          data-employee-id="{{ employee.id }}" 
+                          data-group="{{ employee.group }}" 
+                          data-shift-type-id="{{ shift_type.id }}">
+                        <span class="employee-name break-words">{{ employee.name }} {{ employee.surname }}</span>
                       </div>
                     {% endfor %}
                   {% endif %}
@@ -60,6 +67,8 @@
             </td>
           {% endfor %}
         </tr>
+        {% with previous_week=day|date:"W" %}{% endwith %}
+        {% endwith %}
       {% endfor %}
     </tbody>
   </table>
