@@ -1,39 +1,86 @@
-{% extends "base.html" %}
 {% load custom_filters %}
+{% load static %}
 
-{% block content %}
-<div class="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-  <div class="max-w-md w-full space-y-8">
-    <div>
-      <h2 class="mt-6 text-center text-3xl font-extrabold text-gray-900">Registracija</h2>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Registracija</title>
+    <link href="{% static 'css/output.css' %}" rel="stylesheet" />
+    <script src="https://cdn.jsdelivr.net/npm/alpinejs" defer></script>
+    <style>
+        .background-custom {
+            background-image: url("{% static 'images/background.png' %}");
+            background-size: cover;
+            background-position: center;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .floating-element {
+            position: absolute;
+            border-radius: 50%;
+            background: rgba(239, 68, 68, 0.6);
+            animation: float 6s ease-in-out infinite;
+        }
+        .floating-element-1 {
+            width: 150px;
+            height: 150px;
+            top: 20%;
+            left: 10%;
+        }
+        .floating-element-2 {
+            width: 200px;
+            height: 200px;
+            bottom: 20%;
+            right: 10%;
+        }
+        @keyframes float {
+            0%, 100% {
+                transform: translateY(0);
+            }
+            50% {
+                transform: translateY(-20px);
+            }
+        }
+    </style>
+</head>
+<body class="background-custom">
+    <div class="floating-element floating-element-1"></div>
+    <div class="floating-element floating-element-2"></div>
+    <div class="max-w-md w-full bg-white p-8 rounded-lg shadow-lg space-y-8 z-10">
+        <div>
+            <h2 class="mt-6 text-center text-3xl font-extrabold text-gray-900">Kreirajte račun</h2>
+        </div>
+        <form class="mt-8 space-y-6" method="post">
+            {% csrf_token %}
+            <div class="rounded-md shadow-sm -space-y-px">
+                <div class="mb-4">
+                    <label for="username" class="block text-sm font-medium text-gray-700">Korisničko ime</label>
+                    {{ form.username|add_class:"appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-red-500 focus:border-red-500 focus:z-10 sm:text-sm" }}
+                </div>
+                <div class="mb-4">
+                    <label for="email" class="block text-sm font-medium text-gray-700">Email</label>
+                    {{ form.email|add_class:"appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-red-500 focus:border-red-500 focus:z-10 sm:text-sm" }}
+                </div>
+                <div class="mb-4">
+                    <label for="password1" class="block text-sm font-medium text-gray-700">Lozinka</label>
+                    {{ form.password1|add_class:"appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-red-500 focus:border-red-500 focus:z-10 sm:text-sm" }}
+                </div>
+                <div class="mb-4">
+                    <label for="password2" class="block text-sm font-medium text-gray-700">Potvrdi lozinku</label>
+                    {{ form.password2|add_class:"appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-red-500 focus:border-red-500 focus:z-10 sm:text-sm" }}
+                </div>
+            </div>
+            <div>
+                <button type="submit" class="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-red-500 hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500">Registrujte se</button>
+            </div>
+        </form>
+        <p class="mt-2 text-center text-sm text-gray-600">
+            Već imate račun? <a href="{% url 'login' %}" class="font-medium text-red-500 hover:text-red-400">Prijavite se ovdje</a>
+        </p>
     </div>
-    <form class="mt-8 space-y-6" method="post">
-      {% csrf_token %}
-      <div class="rounded-md shadow-sm -space-y-px">
-        <div class="mb-4">
-          <label for="username" class="block text-sm font-medium text-gray-700">Korisničko ime</label>
-          {{ form.username|add_class:"appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm" }}
-        </div>
-        <div class="mb-4">
-          <label for="email" class="block text-sm font-medium text-gray-700">Email</label>
-          {{ form.email|add_class:"appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm" }}
-        </div>
-        <div class="mb-4">
-          <label for="password1" class="block text-sm font-medium text-gray-700">Lozinka</label>
-          {{ form.password1|add_class:"appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm" }}
-        </div>
-        <div class="mb-4">
-          <label for="password2" class="block text-sm font-medium text-gray-700">Potvrdi lozinku</label>
-          {{ form.password2|add_class:"appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm" }}
-        </div>
-      </div>
-      <div>
-        <button type="submit" class="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">Register</button>
-      </div>
-    </form>
-    <p class="mt-2 text-center text-sm text-gray-600">
-      Već imate račun? <a href="{% url 'login' %}" class="font-medium text-indigo-600 hover:text-indigo-500">Prijavite se ovdje</a>
-    </p>
-  </div>
-</div>
-{% endblock %}
+</body>
+</html>

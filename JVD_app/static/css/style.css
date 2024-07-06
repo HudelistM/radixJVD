@@ -16,7 +16,7 @@
 /* Employee block styles */
 .employee-block {
   @apply inline-block p-1 border border-gray-300 rounded-md truncate; /* Adjusted padding */
-  width: 120px; /* Adjusted size */
+  width: 100px; /* Adjusted size */
   height: 40px; /* Adjusted size */
   display: flex;
   align-items: center;
@@ -25,7 +25,8 @@
 
 /* Ensure consistent font size */
 .employee-block .employee-name {
-  @apply text-sm break-words; /* Adjusted text size and added break-words */
+  @apply text-xs truncate; /* Adjusted text size and added break-words */
+  max-width: 80px;
 }
 
 /* Group color coding */

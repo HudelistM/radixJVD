@@ -14,8 +14,8 @@
 
 <div id="employees-list" class="bg-white p-2 sticky bottom-0 grid grid-cols-auto-fill gap-5">
   {% for employee in employees|exclude_and_sort_by_group %}
-  <div class="employee-block group-{{ employee.group }} p-1 border border-gray-300 rounded-md truncate" data-employee-id="{{ employee.id }}" data-group="{{ employee.group }}">
-    <span class="employee-name break-words">{{ employee.surname }} {{ employee.name|slice:":1" }}. ({{ employee.group }})</span> <!-- Added break-words -->
+  <div class="employee-block group-{{ employee.group }}" data-employee-id="{{ employee.id }}" data-group="{{ employee.group }}">
+    <span class="employee-name">{{ employee.surname }} {{ employee.name|slice:":1" }}. ({{ employee.group }})</span>
   </div>
   {% endfor %}
 </div>

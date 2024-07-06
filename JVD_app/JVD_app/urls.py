@@ -2,9 +2,10 @@ from django.contrib import admin
 from django.urls import include, path
 from django_browser_reload.urls import urlpatterns as reload_urls
 from scheduler import views
+from django.contrib.auth import views as auth_views
 
 # Corrected imports
-from scheduler.views import radnici,landingPage, register, documents_view, schedule_view, api_schedule_data, update_overtime_hours, get_workday_data, update_schedule, delete_workday, playground
+from scheduler.views import radnici,landingPage, documents_view, schedule_view, api_schedule_data, update_overtime_hours, get_workday_data, update_schedule, delete_workday, playground
 from scheduler.views.worker_views import add_or_edit_employee, get_employee_data, delete_employee, radnik_profil, handle_overtime, handle_free_day,handle_vacation
 from scheduler.views.excel_views import download_schedule, download_sihterica
 from scheduler.views.pdf_views import download_schedule_pdf,download_timesheet_pdf
@@ -13,8 +14,12 @@ from scheduler.views.pdf_views import download_schedule_pdf,download_timesheet_p
 urlpatterns = [
     path("__reload__/", include("django_browser_reload.urls")),
     path('admin/', admin.site.urls),
-    path('', landingPage, name='landingPage'),  # Root URL
-    path('accounts/', include('django.contrib.auth.urls')),
+    path('accounts/login/', auth_views.LoginView.as_view(template_name='registration/login.html'), name='login'),
+    path('accounts/logout/', auth_views.LogoutView.as_view(next_page='login'), name='logout'),
+    path('accounts/', include('django.contrib.auth.urls')),  # Includes built-in auth views like password reset
+    #path('register/', views.register, name='register'),
+    path('', views.landingPage, name='landingPage'),  # Root URL
+    
     path('playground/', playground, name='playground'),
 
     # Worker views
@@ -27,8 +32,6 @@ urlpatterns = [
     path('handle_free_day/<int:employee_id>/', handle_free_day, name='handle_free_day'),
     path('handle_vacation/<int:employee_id>/', handle_vacation, name='handle_vacation'),
 
-    # Other views
-    path('register/', register, name='register'),
 
     # Schedule views
     path('schedule/', schedule_view, name='schedule_view'),
