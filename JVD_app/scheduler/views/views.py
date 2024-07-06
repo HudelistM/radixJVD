@@ -41,10 +41,14 @@ def playground(request):
 def is_ajax(request):
     return request.headers.get('x-requested-with') == 'XMLHttpRequest'
 
+@login_required
 def landingPage(request):
+    if not request.user.is_authenticated:
+        return redirect('login')
     return render(request, "scheduler/landing_page.html")
-  
-def register(request):
+
+
+"""def register(request):
     if request.method == 'POST':
         form = UserRegisterForm(request.POST)
         if form.is_valid():
@@ -58,9 +62,9 @@ def register(request):
 def get_week_dates(start_date):
     # start_date is assumed to be a Monday
     return [start_date + timedelta(days=i) for i in range(7)]
+"""
 
-
-
+@login_required
 def documents_view(request):
     documents = [
         {"name": "Šihterica", "type": "xlsx", "url": reverse('download_sihterica')}, 
@@ -72,7 +76,7 @@ def documents_view(request):
         logger.debug(f"Document URL for {doc['name']}: {doc['url']}")
     return render(request, 'scheduler/dokumenti.html', {'documents': documents})
 
-
+@login_required
 def radnici(request):
     employees = Employee.objects.all().order_by('group')  # Ordering by group ensures groups are together
     groups = {}
