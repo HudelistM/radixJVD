@@ -26,8 +26,9 @@ DEBUG = False
 
 ALLOWED_HOSTS = ['165.232.126.170']
 
+LOGIN_URL = 'login'
 LOGIN_REDIRECT_URL = 'landingPage'
-LOGOUT_REDIRECT_URL = 'landingPage'
+LOGOUT_REDIRECT_URL = 'login'
 
 # Application definition
 
