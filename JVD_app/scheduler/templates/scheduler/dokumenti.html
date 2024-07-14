@@ -5,20 +5,38 @@
     <h1 class="text-2xl mb-4">Dostupni dokumenti</h1>
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
       {% for doc in documents %}
-        <div class="bg-white rounded shadow p-4 hover:shadow-lg transition-shadow duration-300">
-          <div class="flex items-center mb-2">
-            <img src="{% static 'icons/'|add:doc.type|add:'.png' %}" alt="{{ doc.type }}" class="w-6 h-6 mr-2">
-            <h2 class="text-xl">{{ doc.name }}</h2>
+        <div class="bg-white rounded shadow p-4 hover:shadow-lg transition-shadow duration-300 flex items-center justify-between">
+          <div>
+            <div class="flex items-center mb-2">
+              <img src="{% static 'icons/'|add:doc.type|add:'.png' %}" alt="{{ doc.type }}" class="w-6 h-6 mr-2">
+              <h2 class="text-xl">{{ doc.name }}</h2>
+            </div>
+            <select id="month-select-{{ forloop.counter }}" class="border p-2 rounded w-full mt-2">
+              <option value="">Odaberite mjesec</option>
+              {% for month in months %}
+                <option value="{{ month.value }}">{{ month.name }}</option>
+              {% endfor %}
+            </select>
           </div>
-          {% if doc.url == "#" %}
-            <p class="text-gray-500">Placeholder za {{ doc.name }}</p>
-          {% else %}
-            <a href="{{ doc.url }}" class="inline-block p-2 rounded hover:bg-red-500 transition-colors duration-300 hover:shadow-md" title="Preuzmi">
-              <img src="{% static 'icons/download.png' %}" alt="Download" class="w-6 h-6">
-            </a>
-          {% endif %}
+          <div class="ml-4">
+            {% if doc.url == "#" %}
+              <p class="text-gray-500">Placeholder za {{ doc.name }}</p>
+            {% else %}
+              <a href="#" id="download-button-{{ forloop.counter }}" class="inline-block p-2 rounded hover:bg-red-500 transition-colors duration-300 hover:shadow-md" title="Preuzmi" onclick="downloadDocument('{{ doc.url }}', '{{ forloop.counter }}')">
+                <img src="{% static 'icons/download.png' %}" alt="Download" class="w-6 h-6">
+              </a>
+            {% endif %}
+          </div>
         </div>
       {% endfor %}
     </div>
   </div>
+
+  <script>
+    function downloadDocument(baseUrl, counter) {
+      const select = document.getElementById(`month-select-${counter}`);
+      const selectedMonth = select.value || new Date().toISOString().slice(0, 7) + '-01';
+      window.location.href = `${baseUrl}?month=${selectedMonth}`;
+    }
+  </script>
 {% endblock %}

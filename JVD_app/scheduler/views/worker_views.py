@@ -75,15 +75,13 @@ def add_or_edit_employee(request):
         else:
             form = EmployeeForm(request.POST)
         if form.is_valid():
-            saved_employee = form.save()
-            handle_vacation_schedule(saved_employee,
-                                     request.POST.get('vacation_start'),
-                                     request.POST.get('vacation_end'))
+            form.save()
             messages.success(request, 'Employee updated successfully' if employee_id else 'Employee added successfully')
             return redirect('radnici')
     else:
         form = EmployeeForm()
     return render(request, 'scheduler/radnici.html', {'form': form})
+
 
 def handle_vacation_schedule(employee, start_date, end_date):
     if start_date and end_date:

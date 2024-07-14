@@ -5,6 +5,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
 let drake = null;
 
+
 function initDragAndDrop() {
     if (drake) {
         console.log('Destroying existing drake instance.');
@@ -12,38 +13,52 @@ function initDragAndDrop() {
         drake = null;
     }
 
-    const employeeList = document.getElementById('employees-list');
+    const employeeContainers = Array.from(document.querySelectorAll('.group-container'));
     const dropzones = Array.from(document.querySelectorAll('.dropzone'));
-    console.log(`Found ${dropzones.length} dropzones for initialization.`);
+    const deleteZone = document.getElementById('delete-zone');
 
-    if (!employeeList || dropzones.length === 0) {
+    console.log(`Found ${dropzones.length} dropzones and ${employeeContainers.length} employee containers for initialization.`);
+    console.log(`Delete zone found: ${deleteZone ? 'Yes' : 'No'}`);
+
+    if (employeeContainers.length === 0 || dropzones.length === 0 || !deleteZone) {
         console.error('Drag and drop initialization aborted: Required elements not found.');
         return;
     }
 
-    const containers = [employeeList].concat(dropzones);
-  
+    const containers = employeeContainers.concat(dropzones, [deleteZone]);
+
     drake = dragula(containers, {
-        copy: (el, source) => source === employeeList,
-        accepts: (el, target) => target !== employeeList && !target.classList.contains('employee-block'),
+        copy: (el, source) => el.classList.contains('employee-block') && employeeContainers.includes(source),
+        accepts: (el, target) => target.classList.contains('dropzone') || target === deleteZone,
         removeOnSpill: false,
         revertOnSpill: true,
         mirrorContainer: document.body,
         moves: (el) => {
-            el.classList.add('employee-block'); // Ensure the mirror gets the correct class
-            return true;
+            return el.classList.contains('employee-block');
         }
     });
 
     drake.on('drop', function(el, target, source) {
-        if (target === employeeList) return;
+        if (!target) return;
     
+
         const employeeId = el.getAttribute('data-employee-id');
-        const date = target.getAttribute('data-date');
-        const shiftTypeId = target.getAttribute('data-shift-type-id');
+        let date = target.getAttribute('data-date');
+        let shiftTypeId = target.getAttribute('data-shift-type-id');
         const group = el.getAttribute('data-group');
     
-        let action = source !== employeeList && source.classList.contains('dropzone') ? 'move' : 'add';
+        // Check if the target is the delete zone
+        if (target === deleteZone) {
+            if (!date) date = source.getAttribute('data-date');
+            if (!shiftTypeId) shiftTypeId = source.getAttribute('data-shift-type-id');
+            const elementId = el.getAttribute('id');
+            deleteScheduleEntry(employeeId, date, shiftTypeId, elementId);
+            el.remove();
+            return;
+        }
+    
+        // Proceed with the regular drop logic
+        let action = !employeeContainers.includes(source) && source.classList.contains('dropzone') ? 'move' : 'add';
         let originalDate = action === 'move' ? source.getAttribute('data-date') : date;
         let originalShiftTypeId = action === 'move' ? source.getAttribute('data-shift-type-id') : shiftTypeId;
     
@@ -55,12 +70,9 @@ function initDragAndDrop() {
         el.setAttribute('data-date', date);
         el.setAttribute('data-shift-type-id', shiftTypeId);
     
-        // Add buttons
-        addButtonsToEmployeeBlock(el);
-    
         updateSchedule(employeeId, shiftTypeId, date, action, originalDate, originalShiftTypeId);
     
-        if (source === employeeList) {
+        if (employeeContainers.includes(source)) {
             let clonedEl = el.cloneNode(true);
             clonedEl.setAttribute('id', elementId); // Set the ID on the cloned element
             clonedEl.setAttribute('data-shift-type-id', shiftTypeId);
@@ -68,53 +80,38 @@ function initDragAndDrop() {
             clonedEl.setAttribute('data-group', group); // Ensure group is set on clone
             clonedEl.classList.add(`group-${group}`);
             target.appendChild(clonedEl);
+            Alpine.initTree(clonedEl);
             drake.containers.push(clonedEl);
         } else {
             el.setAttribute('data-shift-type-id', shiftTypeId);
             target.appendChild(el);
+            Alpine.initTree(el); 
         }
     });
 
     drake.on('drag', function(el) {
         console.log('Dragging', el);
     });
-    
+
     drake.on('dragend', function(el) {
         const shadows = document.querySelectorAll('.gu-mirror, .gu-transit');
         shadows.forEach(shadow => shadow.remove());
     });
-};
 
-function addButtonsToEmployeeBlock(el) {
-    const elementId = el.getAttribute('id');
+    drake.on('over', function(el, container) {
+        if (container === deleteZone) {
+            container.classList.add('bg-red-500');
+        }
+    });
 
-    if (!el.querySelector('.cog-btn')) {
-        const cogButton = document.createElement('button');
-        cogButton.className = 'cog-btn';
-        cogButton.innerHTML = '⚙️';
-        cogButton.onclick = () => openOvertimeModal(
-            el.getAttribute('data-employee-id'), 
-            el.getAttribute('data-date'), 
-            el.getAttribute('data-shift-type-id')
-        );
-        el.appendChild(cogButton);
-    }
-
-    if (!el.querySelector('.delete-btn')) {
-        const deleteButton = document.createElement('button');
-        deleteButton.className = 'delete-btn';
-        deleteButton.textContent = '❌';
-        deleteButton.onclick = () => {
-            deleteScheduleEntry(
-                el.getAttribute('data-employee-id'), 
-                el.getAttribute('data-date'), 
-                el.getAttribute('data-shift-type-id'), 
-                el.getAttribute('id')
-            );
-        };
-        el.appendChild(deleteButton);
-    }
+    drake.on('out', function(el, container) {
+        if (container === deleteZone) {
+            container.classList.remove('bg-red-500');
+        }
+    });
 }
+
+
 
 function updateSchedule(employeeId, shiftTypeId, date, action, originalDate, originalShiftTypeId) {
     const url = `/update_schedule/`;
@@ -194,10 +191,10 @@ function createEmployeeBlock(employee, date, shiftTypeId) {
     nameSpan.textContent = `${employee.surname} ${employee.name.charAt(0)}. (${employee.group})`;
     div.appendChild(nameSpan);
 
-    addButtonsToEmployeeBlock(div);
-
     return div;
 }
+
+
 
 function openOvertimeModal(employeeId, date, shiftTypeId) {
     console.log(`Opening modal for Employee ID: ${employeeId}, Date: ${date}, Shift Type ID: ${shiftTypeId}`);
@@ -292,6 +289,7 @@ function deleteScheduleEntry(employeeId, date, shiftTypeId, elementId) {
     });
 
     console.log(`Attempting to delete employee block with ID: ${elementId}`);
+    console.log(`Request body: ${requestBody}`); // Debug statement
 
     fetch(url, {
         method: 'POST',

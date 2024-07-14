@@ -1,38 +1,14 @@
 {% load custom_templates %}
 {% load custom_filters %}
 
-<div id="overtime-dialog" class="hidden fixed inset-0 items-center flex justify-center bg-black bg-opacity-50 z-40">
-  <div class="bg-white p-6 rounded-lg shadow-lg w-1/3 max-w-lg">
-      <h2 class="text-xl mb-4">Unesite prekovremene sate</h2>
-      
-      <label for="overtime-hours">Prekovremeni sati iz pripreme</label>
-      <input type="number" id="overtime-hours" class="border p-2 mb-4 w-full" value="">
 
-      <label for="overtime-hours-service">Prekovremeni sati iz pripreme usluga</label>
-      <input type="number" id="overtime-hours-service" class="border p-2 mb-4 w-full" value="">
-      
-      <label for="day-hours">Dnevni sati</label>
-      <input type="number" id="day-hours" class="border p-2 mb-4 w-full" value="">
-      
-      <label for="night-hours">Noćni sati</label>
-      <input type="number" id="night-hours" class="border p-2 mb-4 w-full" value="">
-      
-      <input type="hidden" id="employee-id">
-      <input type="hidden" id="work-date">
-      <input type="hidden" id="shift-type-id">
-      
-      <button onclick="submitOvertime()" class="bg-blue-500 hover:bg-blue-700 text-white py-2 px-4 rounded">U redu</button>
-      <button onclick="closeOvertimeDialog()" class="bg-red-500 hover:bg-red-700 text-white py-2 px-4 rounded ml-2">Odustani</button>
-  </div>
-</div>
-
-<div class="overflow-x-auto w-full" style="max-height: 80vh;">
+<div class="overflow-auto w-full" style="max-height: 80vh;">
   <table class="min-w-full table-auto">
-    <thead class="sticky top-0 bg-gray-100 z-50">
+    <thead class="sticky top-0 bg-gray-100 z-30">
       <tr>
-        <th class="px-2 py-1 border min-w-[120px] text-center">Datum</th>
+        <th class="px-2 py-1 border text-center">Datum</th>
         {% for shift_type in shift_types %}
-          <th class="px-2 py-1 border min-w-[120px] text-center">{{ shift_type.name }}</th>
+          <th class="px-2 py-1 border max-w-32 text-center text-pretty">{{ shift_type.name }}</th>
         {% endfor %}
       </tr>
     </thead>
@@ -43,12 +19,12 @@
         <tr class="week-divider"></tr>
         {% endif %}
         <tr class="{% if weekday == '0' %} bg-yellow-100 {% elif weekday == '6' %} bg-green-100 {% endif %}">
-          <td class="px-2 py-1 border text-center">
+          <td class="px-2 py-1 border text-center max-w-24">
             <div class="font-bold text-center">{{ day|date:"D"|translate_days }}</div> <!-- Use translate_days filter -->
             <div class="mt-1 text-center">{{ day|date:"d.m.Y" }}</div> <!-- Margin-top for spacing -->
           </td>
           {% for shift_type in shift_types %}
-            <td class="px-2 py-1 border min-w-[120px] dropzone bg-white p-1 rounded border-gray-400 min-h-[40px]" data-shift-type-id="{{ shift_type.id }}" data-date="{{ day|date:'Y-m-d' }}">
+            <td class="items-center justify-center px-2 py-1 border min-w-[120px] dropzone bg-white p-1 rounded border-gray-400 min-h-[40px]" data-shift-type-id="{{ shift_type.id }}" data-date="{{ day|date:'Y-m-d' }}">
               {% with day_str=day|date:"Y-m-d" %}
                 {% with schedule_entry=schedule_data|get_item:day_str|get_item:shift_type.id %}
                   {% if schedule_entry %}
@@ -73,3 +49,29 @@
     </tbody>
   </table>
 </div>
+
+<div id="overtime-dialog" class="hidden fixed inset-0 items-center flex justify-center bg-black bg-opacity-50 z-50">
+  <div class="bg-white p-6 rounded-lg shadow-lg w-1/3 max-w-lg">
+      <h2 class="text-xl mb-4">Unesite prekovremene sate</h2>
+      
+      <label for="overtime-hours">Prekovremeni sati iz pripreme</label>
+      <input type="number" id="overtime-hours" class="border p-2 mb-4 w-full" value="">
+
+      <label for="overtime-hours-service">Prekovremeni sati iz pripreme usluga</label>
+      <input type="number" id="overtime-hours-service" class="border p-2 mb-4 w-full" value="">
+      
+      <label for="day-hours">Dnevni sati</label>
+      <input type="number" id="day-hours" class="border p-2 mb-4 w-full" value="">
+      
+      <label for="night-hours">Noćni sati</label>
+      <input type="number" id="night-hours" class="border p-2 mb-4 w-full" value="">
+      
+      <input type="hidden" id="employee-id">
+      <input type="hidden" id="work-date">
+      <input type="hidden" id="shift-type-id">
+      
+      <button onclick="submitOvertime()" class="bg-blue-500 hover:bg-blue-700 text-white py-2 px-4 rounded">U redu</button>
+      <button onclick="closeOvertimeDialog()" class="bg-red-500 hover:bg-red-700 text-white py-2 px-4 rounded ml-2">Odustani</button>
+  </div>
+</div>
+

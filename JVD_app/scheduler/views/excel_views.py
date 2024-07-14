@@ -5,7 +5,7 @@ from calendar import monthrange
 from django.db.models import Sum
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
-from datetime import date, timedelta
+from datetime import date, timedelta, datetime
 from ..models import ScheduleEntry, ShiftType, Employee, WorkDay, FixedHourFund, Holiday, ExcessHours
 from io import BytesIO
 import calendar
@@ -121,9 +121,9 @@ def create_schedule_excel(week_dates, shift_types, schedule_data, author_name):
 
 @login_required
 def download_schedule(request):
-    start_date_str = request.GET.get('week_start')
-    if start_date_str:
-        start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
+    month_str = request.GET.get('month')
+    if month_str:
+        start_date = datetime.strptime(month_str, '%Y-%m-%d').date()
     else:
         today = date.today()
         start_date = today - timedelta(days=today.weekday())
@@ -151,9 +151,14 @@ def download_schedule(request):
 
 @login_required
 def download_sihterica(request):
-    current_date = date.today()
-    current_month = current_date.month
-    current_year = current_date.year
+    month_str = request.GET.get('month')
+    if month_str:
+        start_date = datetime.strptime(month_str, '%Y-%m-%d').date()
+    else:
+        start_date = date.today().replace(day=1)
+    
+    current_year = start_date.year
+    current_month = start_date.month
     days_in_month = monthrange(current_year, current_month)[1]
     
     employees = Employee.objects.all().order_by('group')
@@ -193,7 +198,7 @@ def download_sihterica(request):
     output.seek(0)
 
     response = HttpResponse(content=output.read(), content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-    response['Content-Disposition'] = 'attachment; filename="sihterica.xlsx"'
+    response['Content-Disposition'] = f'attachment; filename="sihterica_{current_month}_{current_year}.xlsx"'
     return response
 
 def setup_formats(workbook):

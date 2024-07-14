@@ -64,17 +64,28 @@ def get_week_dates(start_date):
     return [start_date + timedelta(days=i) for i in range(7)]
 """
 
+
 @login_required
 def documents_view(request):
+    current_year = datetime.now().year
+    croatian_months = {
+        1: 'Siječanj', 2: 'Veljača', 3: 'Ožujak', 4: 'Travanj', 5: 'Svibanj', 6: 'Lipanj',
+        7: 'Srpanj', 8: 'Kolovoz', 9: 'Rujan', 10: 'Listopad', 11: 'Studeni', 12: 'Prosinac'
+    }
+    months = []
+    for month in range(1, 13):
+        month_name = croatian_months[month]
+        month_value = f"{current_year}-{month:02d}-01"
+        months.append({"name": month_name, "value": month_value})
+
     documents = [
         {"name": "Šihterica", "type": "xlsx", "url": reverse('download_sihterica')}, 
         {"name": "Raspored", "type": "xlsx", "url": reverse('download_schedule')},
         {"name": "Raspored PDF", "type": "pdf", "url": reverse('download_schedule_pdf')},
-        {"name": "Šihterica PDF", "type": "pdf", "url": reverse('download_timesheet_pdf')},
+        #{"name": "Šihterica PDF", "type": "pdf", "url": reverse('download_timesheet_pdf')},
     ]
-    for doc in documents:
-        logger.debug(f"Document URL for {doc['name']}: {doc['url']}")
-    return render(request, 'scheduler/dokumenti.html', {'documents': documents})
+
+    return render(request, 'scheduler/dokumenti.html', {'documents': documents, 'months': months, 'current_year': current_year})
 
 @login_required
 def radnici(request):
@@ -85,6 +96,8 @@ def radnici(request):
         if group not in groups:
             groups[group] = []
         groups[group].append(employee)
+
+    total_employees = employees.count()  # Count total employees
 
     if request.method == 'POST':
         form = UserRegisterForm(request.POST)
@@ -98,6 +111,7 @@ def radnici(request):
     context = {
         'form': form,
         'groups': groups,  # Pass the grouped employees instead
+        'total_employees': total_employees,  # Pass the total employees count
     }
     return render(request, 'scheduler/radnici.html', context)
 
@@ -110,6 +124,16 @@ def get_month_dates(start_date):
     month_length = monthrange(start_date.year, start_date.month)[1]
     return [start_date + timedelta(days=i) for i in range(month_length)]
 
+def get_first_day_of_week(date):
+    """Get the first day of the week for the given date. Week starts on Monday."""
+    day_idx = date.weekday()  # Monday is 0 and Sunday is 6
+    return date - timedelta(days=day_idx)
+
+def get_last_day_of_week(date):
+    """Get the last day of the week for the given date. Week ends on Sunday."""
+    day_idx = date.weekday()
+    return date + timedelta(days=(6 - day_idx))
+
 def schedule_view(request):
     # Fetch the month's start date from the request, default to current month's start if not provided
     month_start_str = request.GET.get('month_start')
@@ -119,7 +143,16 @@ def schedule_view(request):
         today = date.today()
         month_start = date(today.year, today.month, 1)  # Start of the current month
 
-    month_dates = get_month_dates(month_start)
+    # Adjust the start date to include the whole week
+    week_start_date = get_first_day_of_week(month_start)
+    # Find the last day of the month
+    last_day_of_month = month_start.replace(day=calendar.monthrange(month_start.year, month_start.month)[1])
+    # Adjust the end date to include the whole week
+    week_end_date = get_last_day_of_week(last_day_of_month)
+
+    # Now fetch the dates range including days from the previous or next month
+    num_days = (week_end_date - week_start_date).days + 1
+    month_dates = [week_start_date + timedelta(days=i) for i in range(num_days)]
 
     shift_types = ShiftType.objects.all()
 
@@ -130,7 +163,10 @@ def schedule_view(request):
         schedule_data[day_key] = {}
         for shift_type in shift_types:
             entry = ScheduleEntry.objects.filter(date=day, shift_type=shift_type).first()
-            schedule_data[day_key][shift_type.id] = entry
+            if entry:
+                schedule_data[day_key][shift_type.id] = entry
+            else:
+                schedule_data[day_key][shift_type.id] = None
 
     context = {
         'month_dates': month_dates,

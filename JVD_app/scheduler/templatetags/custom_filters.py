@@ -1,4 +1,6 @@
 from django import template
+from django.template.defaultfilters import dictsort
+import itertools
 
 register = template.Library()
 
@@ -53,3 +55,22 @@ def translate_days(day):
         'Sun': 'Ned'
     }
     return days.get(day, day)
+
+@register.filter
+def groupby(value, arg):
+    """
+    Groups a list of dictionaries by a specified key.
+    """
+    if not value:
+        return []
+
+    # Sort the list by the specified attribute to ensure the groupby works correctly
+    sorted_value = dictsort(value, arg)
+
+    # Group the sorted list by the specified attribute
+    grouped = itertools.groupby(sorted_value, key=lambda x: getattr(x, arg))
+
+    return [{
+        'grouper': key,
+        'list': list(val)
+    } for key, val in grouped]

@@ -4,20 +4,44 @@
 
 {% block content %}
 {% with schedule_view=True %}
-<div class="flex">
-  <div class="shadow overflow-hidden rounded-lg border-b border-gray-200 w-full"> <!-- Added w-full -->
+
+<!-- Main Content -->
+<div class="space-y-4 mt-4">
+  <div class="shadow overflow-hidden rounded-lg border-b border-gray-200 w-full">
     <div id="schedule-grid" data-month-start="{{ month_dates.0|date:'Y-m-d' }}">
       {% include 'scheduler/scheduler_grid_inner.html' %}
     </div>
   </div>
 </div>
 
-<div id="employees-list" class="bg-white p-2 sticky bottom-0 grid grid-cols-auto-fill gap-5">
-  {% for employee in employees|exclude_and_sort_by_group %}
-  <div class="employee-block group-{{ employee.group }}" data-employee-id="{{ employee.id }}" data-group="{{ employee.group }}">
-    <span class="employee-name">{{ employee.surname }} {{ employee.name|slice:":1" }}. ({{ employee.group }})</span>
-  </div>
+<div id="employees-list" class="bg-white border-t-2 border-red-400 rounded-md p-2 sticky bottom-0 grid grid-cols-5 gap-5">
+  {% for group in employees|exclude_and_sort_by_group|groupby:"group" %}
+    <div class="group-col">
+      <div class="group-header bg-gray-200 p-1 rounded text-center mb-2">
+        {% if group.grouper == "2" %}
+          Crvena smjena
+        {% elif group.grouper == "3" %}
+          Zelena smjena
+        {% elif group.grouper == "4" %}
+          Plava smjena
+        {% elif group.grouper == "5" %}
+          Crna smjena
+        {% elif group.grouper == "6" %}
+          Ljubičasta smjena
+        {% else %}
+          Smjena {{ group.grouper }}
+        {% endif %}
+      </div>
+      <div class="grid grid-cols-3 gap-1 group-container">
+        {% for employee in group.list %}
+          <div class="employee-block group-{{ employee.group }}" data-employee-id="{{ employee.id }}" data-group="{{ employee.group }}">
+            <span class="employee-name">{{ employee.surname }} {{ employee.name|slice:":1" }}. ({{ employee.group }})</span>
+          </div>
+        {% endfor %}
+      </div>
+    </div>
   {% endfor %}
 </div>
+
 {% endwith %}
 {% endblock %}

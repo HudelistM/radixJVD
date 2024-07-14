@@ -6,8 +6,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const deleteButtons = document.querySelectorAll('.delete-button');
     const form = document.getElementById('employee-form');
     const employeeIdInput = document.getElementById('employee-id');
-    const vacationStartDiv = document.querySelector('[name="vacation_start"]').closest('.col-span-2');
-    const vacationEndDiv = document.querySelector('[name="vacation_end"]').closest('.col-span-2');
     const submitButton = document.querySelector('.modal-add');
     const successMessage = document.getElementById('success-message');
 
@@ -17,8 +15,6 @@ document.addEventListener('DOMContentLoaded', () => {
         employeeIdInput.value = '';
         document.getElementById('modal-title').textContent = 'Dodaj novog radnika';
         submitButton.textContent = 'Dodaj';
-        vacationStartDiv.style.display = 'none';
-        vacationEndDiv.style.display = 'none';
         modal.classList.remove('hidden', 'opacity-0', 'pointer-events-none');
     });
 
@@ -33,13 +29,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     document.getElementById('surname').value = data.surname;
                     document.getElementById('role').value = data.role;
                     document.getElementById('group').value = data.group;
-                    document.getElementById('vacation-start').value = data.vacation_start;
-                    document.getElementById('vacation-end').value = data.vacation_end;
                     employeeIdInput.value = employeeId;
                     document.getElementById('modal-title').textContent = 'Uredi radnika';
                     submitButton.textContent = 'Spremi';
-                    vacationStartDiv.style.display = 'block';
-                    vacationEndDiv.style.display = 'block';
                     modal.classList.remove('hidden', 'opacity-0', 'pointer-events-none');
                 });
         });
@@ -131,4 +123,3 @@ document.addEventListener('DOMContentLoaded', () => {
         }, 2000);
     }
 });
-
