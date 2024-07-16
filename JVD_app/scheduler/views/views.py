@@ -135,28 +135,25 @@ def get_last_day_of_week(date):
     return date + timedelta(days=(6 - day_idx))
 
 def schedule_view(request):
-    # Fetch the month's start date from the request, default to current month's start if not provided
+    print("All query params:", request.GET)
     month_start_str = request.GET.get('month_start')
+    print("Month start string received:", month_start_str)
+
     if month_start_str:
         month_start = datetime.strptime(month_start_str, '%Y-%m-%d').date()
     else:
         today = date.today()
-        month_start = date(today.year, today.month, 1)  # Start of the current month
+        month_start = date(today.year, today.month, 1)
 
-    # Adjust the start date to include the whole week
     week_start_date = get_first_day_of_week(month_start)
-    # Find the last day of the month
     last_day_of_month = month_start.replace(day=calendar.monthrange(month_start.year, month_start.month)[1])
-    # Adjust the end date to include the whole week
     week_end_date = get_last_day_of_week(last_day_of_month)
 
-    # Now fetch the dates range including days from the previous or next month
     num_days = (week_end_date - week_start_date).days + 1
     month_dates = [week_start_date + timedelta(days=i) for i in range(num_days)]
 
     shift_types = ShiftType.objects.all()
 
-    # Construct the schedule data structure for the month
     schedule_data = {}
     for day in month_dates:
         day_key = day.strftime('%Y-%m-%d')
@@ -175,8 +172,12 @@ def schedule_view(request):
         'employees': Employee.objects.all(),
         'schedule_view': True,
     }
-    return render(request, 'scheduler/schedule_grid.html', context)
 
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        return render(request, 'scheduler/scheduler_grid_inner.html', context)
+    else:
+        return render(request, 'scheduler/schedule_grid.html', context)
+    
 # New view function to serve schedule data as JSON
 @require_http_methods(["GET"])
 def api_schedule_data(request):
@@ -194,6 +195,7 @@ def api_schedule_data(request):
     schedule_entries = ScheduleEntry.objects.filter(
         date__range=[week_start_date, week_end_date]
     ).select_related('shift_type').prefetch_related('employees')
+    
     
     schedule_list = []
     for entry in schedule_entries:

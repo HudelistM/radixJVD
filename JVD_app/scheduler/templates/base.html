@@ -9,6 +9,7 @@
   <link href="{% static 'css/output.css' %}" rel="stylesheet" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/dragula/3.7.3/dragula.min.css"/>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/alpinejs/3.14.0/cdn.js" defer></script>
+  <script src="https://unpkg.com/htmx.org@2.0.1" defer></script>
 </head>
 
 <body class="relative" x-data="{ }">
@@ -28,7 +29,7 @@
 
         {% if request.resolver_match.url_name != 'schedule_view' %}
         <!-- Search Bar -->
-        <div class="flex items-center">Traka za pretrazivanje</div>
+        <div class="flex items-center"></div>
         {% else %}
         <!-- Navigation Icons -->
         <div class="flex items-center space-x-4">
@@ -150,11 +151,11 @@
     </main>
   </div>
 
+ 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.30.1/moment.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/moment-timezone/0.5.45/moment-timezone-with-data.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/dragula/3.7.3/dragula.min.js" integrity="sha512-NgXVRE+Mxxf647SqmbB9wPS5SEpWiLFp5G7ItUNFi+GVUyQeP+7w4vnKtc2O/Dm74TpTFKXNjakd40pfSKNulg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
   <script src="{% static 'js/scheduleNavigation.js' %}"></script>
-  <script src="{% static 'js/scheduleDragAndDrop.js' %}"></script>
   <script src="{% static 'js/radnici.js' %}"></script>
 
 </body>

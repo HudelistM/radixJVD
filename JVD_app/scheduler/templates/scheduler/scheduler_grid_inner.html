@@ -19,7 +19,7 @@
         <tr class="week-divider"></tr>
         {% endif %}
         <tr class="{% if weekday == '0' %} bg-yellow-100 {% elif weekday == '6' %} bg-green-100 {% endif %}">
-          <td class="px-2 py-1 border text-center max-w-24">
+          <td class="px-2 py-1 border text-center max-w-24 date-header">
             <div class="font-bold text-center">{{ day|date:"D"|translate_days }}</div> <!-- Use translate_days filter -->
             <div class="mt-1 text-center">{{ day|date:"d.m.Y" }}</div> <!-- Margin-top for spacing -->
           </td>

@@ -1,6 +1,18 @@
 document.addEventListener('DOMContentLoaded', function() {
     initDragAndDrop();
     fetchAndRenderSchedule();
+    populateMonthDropdown();
+    setupMonthNavigation();
+    // Add right-click event listener to employee blocks
+    document.querySelectorAll('.employee-block').forEach(block => {
+        block.addEventListener('contextmenu', function(event) {
+            event.preventDefault();
+            const employeeId = this.getAttribute('data-employee-id');
+            const date = this.getAttribute('data-date');
+            const shiftTypeId = this.getAttribute('data-shift-type-id');
+            openOvertimeModal(employeeId, date, shiftTypeId);
+        });
+    });
 });
 
 let drake = null;
@@ -150,30 +162,56 @@ function updateSchedule(employeeId, shiftTypeId, date, action, originalDate, ori
 
 function fetchAndRenderSchedule() {
     let monthStart = document.getElementById('schedule-grid').getAttribute('data-month-start');
+    console.log('MonthStart:', monthStart); // Confirming the month start
     let startDate = moment(monthStart);
     let endDate = moment(startDate).endOf('month');
 
     const startFormat = startDate.format('YYYY-MM-DD');
     const endFormat = endDate.format('YYYY-MM-DD');
-
-    fetch(`/api/schedule/?week_start=${startFormat}&week_end=${endFormat}`)
-    .then(response => response.json())
+    
+    // Fetch HTML and update the DOM
+    fetch(`/schedule/?month_start=${monthStart}`, {
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'  // Important for Django to recognize this as an AJAX request
+        }
+    })
+    .then(response => response.text())  // Expect HTML in response
+    .then(html => {
+        document.getElementById('schedule-grid').innerHTML = html;
+        // After HTML is updated, fetch JSON data
+        return fetch(`/api/schedule/?week_start=${startFormat}&week_end=${endFormat}`);
+    })
+    .then(response => response.json()) // Process JSON response
     .then(data => {
-        document.querySelectorAll('.dropzone').forEach(dz => dz.innerHTML = ''); // Clear existing blocks
-        data.forEach(({ date, shift_type_id, employees }) => {
-            const cell = document.querySelector(`.dropzone[data-shift-type-id="${shift_type_id}"][data-date="${date}"]`);
-            if (!cell) {
-                console.error('Dropzone not found for date:', date, 'and shift type ID:', shift_type_id);
-                return;
-            }
-            employees.forEach(employee => {
-                const employeeBlock = createEmployeeBlock(employee, date, shift_type_id);
-                cell.appendChild(employeeBlock);
+        updateScheduleGrid(data);
+        initDragAndDrop();  // Re-initialize drag-and-drop functionality
+        // Reinitialize right-click event listener
+        document.querySelectorAll('.employee-block').forEach(block => {
+            block.addEventListener('contextmenu', function(event) {
+                event.preventDefault();
+                const employeeId = this.getAttribute('data-employee-id');
+                const date = this.getAttribute('data-date');
+                const shiftTypeId = this.getAttribute('data-shift-type-id');
+                openOvertimeModal(employeeId, date, shiftTypeId);
             });
         });
-        console.log('Schedule fetched and rendered successfully.');
     })
-    .catch(error => console.error('Error fetching schedule:', error));
+    .catch(error => console.error('Error during fetch operations:', error));
+}
+function updateScheduleGrid(data) {
+    document.querySelectorAll('.dropzone').forEach(dz => dz.innerHTML = '');
+    data.forEach(({ date, shift_type_id, employees }) => {
+        const cell = document.querySelector(`.dropzone[data-shift-type-id="${shift_type_id}"][data-date="${date}"]`);
+        if (!cell) {
+            console.error('Dropzone not found for date:', date, 'and shift type ID:', shift_type_id);
+            return;
+        }
+        employees.forEach(employee => {
+            const employeeBlock = createEmployeeBlock(employee, date, shift_type_id);
+            cell.appendChild(employeeBlock);
+        });
+    });
+    console.log('Schedule fetched and rendered successfully.');
 }
 
 function createEmployeeBlock(employee, date, shiftTypeId) {
@@ -346,3 +384,78 @@ function getCookie(name) {
     }
     return cookieValue;
 }
+
+function changeMonth(offset) {
+    const monthStart = document.getElementById('schedule-grid').getAttribute('data-month-start');
+    let currentDate = moment(monthStart).add(offset, 'months');
+    updateMonthStart(currentDate.format('YYYY-MM-DD'));
+}
+
+function setupMonthNavigation() {
+    const prevMonthButton = document.getElementById('prev-month');
+    const nextMonthButton = document.getElementById('next-month');
+    const monthSelect = document.getElementById('month-select');
+
+    prevMonthButton.addEventListener('click', () => changeMonth(-1));
+    nextMonthButton.addEventListener('click', () => changeMonth(1));
+    monthSelect.addEventListener('change', (event) => {
+        updateMonthStart(event.target.value);
+        fetchAndRenderSchedule();
+    });
+}
+
+function updateMonthStart(newDate) {
+    document.getElementById('schedule-grid').setAttribute('data-month-start', newDate);
+    document.getElementById('month-select').value = newDate;
+    fetchAndRenderSchedule();  // Update the schedule according to the new month
+}
+
+function populateMonthDropdown() {
+    const monthSelect = document.getElementById('month-select');
+    monthSelect.innerHTML = ''; // Clear existing options
+
+    // Get the current year to make sure the dropdown reflects the current and accurate year
+    const currentYear = new Date().getFullYear();
+
+    // Define Croatian month names
+    const monthNames = ['Siječanj', 'Veljača', 'Ožujak', 'Travanj', 'Svibanj', 'Lipanj', 
+                        'Srpanj', 'Kolovoz', 'Rujan', 'Listopad', 'Studeni', 'Prosinac'];
+
+    // Create options for each month
+    monthNames.forEach((name, index) => {
+        const month = index + 1; // Month index starts from 1 (January) to 12 (December)
+        const monthValue = `${currentYear}-${month.toString().padStart(2, '0')}-01`; // Format to YYYY-MM-DD
+        const option = document.createElement('option');
+        option.value = monthValue;
+        option.textContent = `${name} ${currentYear}`;
+        monthSelect.appendChild(option);
+    });
+
+    // Automatically select the current month in the dropdown
+    updateMonthSelection();
+}
+
+function updateMonthSelection() {
+    const currentMonthStart = document.getElementById('schedule-grid').getAttribute('data-month-start');
+    if (!currentMonthStart) {
+        const today = new Date();
+        const currentMonthFormatted = `${today.getFullYear()}-${(today.getMonth() + 1).toString().padStart(2, '0')}-01`;
+        document.getElementById('schedule-grid').setAttribute('data-month-start', currentMonthFormatted);
+        document.getElementById('month-select').value = currentMonthFormatted;
+    } else {
+        document.getElementById('month-select').value = currentMonthStart;
+    }
+}
+
+function debounce(func, wait) {
+    let timeout;
+    return function executedFunction(...args) {
+        const later = () => {
+            clearTimeout(timeout);
+            func(...args);
+        };
+        clearTimeout(timeout);
+        timeout = setTimeout(later, wait);
+    };
+}
+
