@@ -4,8 +4,13 @@
 
 #employees-list {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); /* Adjusted to a smaller size */
-  gap: 5px; /* Reduced gap */
+  grid-template-columns: repeat(5, 1fr);
+  gap: 10px;
+}
+
+.group-container {
+  display: flex;
+  flex-wrap: wrap;
 }
 
 .animate-fade-out {
@@ -15,20 +20,34 @@
 
 /* Employee block styles */
 .employee-block {
-  @apply inline-block p-1 border border-gray-300 rounded-md truncate; /* Adjusted padding */
-  width: 100px; /* Adjusted size */
-  height: 40px; /* Adjusted size */
+  @apply inline-block p-1 border border-gray-300 rounded-md truncate cursor-move;
+  width: 100px;
+  height: 40px;
   display: flex;
   align-items: center;
   justify-content: center;
+  margin: auto;
+  position: relative;
+  transition: width 0.4s cubic-bezier(0.25, 0.8, 0.25, 1), max-width 0.4s cubic-bezier(0.25, 0.8, 0.25, 1), transform 0.4s cubic-bezier(0.25, 0.8, 0.25, 1), background-color 0.4s ease;
 }
 
-/* Ensure consistent font size */
 .employee-block .employee-name {
-  @apply text-xs truncate; /* Adjusted text size and added break-words */
+  @apply text-xs truncate z-50;
   max-width: 80px;
+  transition: max-width 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
 }
 
+.employee-block:hover {
+  @apply shadow-lg z-50;
+  white-space: nowrap;
+  width:auto;
+  min-width: 100px;
+  transform: scale(1.15);
+}
+
+.employee-block:hover .employee-name {
+  max-width: none;
+}
 /* Group color coding */
 .group-2 {
   @apply bg-red-100 text-red-800;
@@ -85,12 +104,4 @@
 /* Week and day coloring */
 .week-divider {
   border-top: 2px solid #ccc;
-}
-
-.bg-green-100 {
-  background-color: #d4edda;
-}
-
-.bg-yellow-100 {
-  background-color: #fff3cd;
 }

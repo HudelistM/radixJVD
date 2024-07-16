@@ -12,7 +12,7 @@ from django.shortcuts import get_object_or_404
 
 # Your app imports
 from ..forms import UserRegisterForm, EmployeeForm
-from ..models import ScheduleEntry, ShiftType, Employee, WorkDay, FreeDay, Vacation
+from ..models import ScheduleEntry, ShiftType, Employee, WorkDay, FreeDay, Vacation, SickLeave
 
 from datetime import date, timedelta, datetime
 import json
@@ -75,15 +75,13 @@ def add_or_edit_employee(request):
         else:
             form = EmployeeForm(request.POST)
         if form.is_valid():
-            saved_employee = form.save()
-            handle_vacation_schedule(saved_employee,
-                                     request.POST.get('vacation_start'),
-                                     request.POST.get('vacation_end'))
+            form.save()
             messages.success(request, 'Employee updated successfully' if employee_id else 'Employee added successfully')
             return redirect('radnici')
     else:
         form = EmployeeForm()
     return render(request, 'scheduler/radnici.html', {'form': form})
+
 
 def handle_vacation_schedule(employee, start_date, end_date):
     if start_date and end_date:
@@ -134,7 +132,54 @@ def handle_vacation_schedule(employee, start_date, end_date):
             current_date += timedelta(days=1)
             day_count += 1
 
+def handle_sick_leave_schedule(employee, start_date, end_date):
+    if start_date and end_date:
+        # Check if the inputs are already date objects
+        if isinstance(start_date, str):
+            start_date = parse_date(start_date)
+        if isinstance(end_date, str):
+            end_date = parse_date(end_date)
+        
+        shift_type_sick_leave = ShiftType.objects.get(name="Bolovanje")  # Ensure this shift type exists
+        current_date = start_date
+        day_count = 0
+        
+        while current_date <= end_date:
+            # Create a ScheduleEntry for every day of the sick leave
+            schedule, created = ScheduleEntry.objects.get_or_create(
+                date=current_date,
+                shift_type=shift_type_sick_leave
+            )
+            # Add employee to the schedule entry
+            if created:
+                schedule.employees.add(employee)
+            elif not schedule.employees.filter(id=employee.id).exists():
+                schedule.employees.add(employee)
 
+            # Determine hours based on the sick leave shift pattern
+            if day_count % 4 == 0:  # Day 1: First Shift
+                hours = 12
+            elif day_count % 4 == 1:  # Day 2: Night Shift starts
+                hours = 5
+            elif day_count % 4 == 2:  # Day 3: Continuation of Night Shift
+                hours = 7
+            else:  # Day 4: Free day
+                hours = 0
+
+            if hours > 0:
+                work_day, work_created = WorkDay.objects.get_or_create(
+                    employee=employee, 
+                    date=current_date,
+                    shift_type=shift_type_sick_leave,  # Ensure shift_type is set
+                    defaults={'sick_leave_hours': hours}
+                )
+                if not work_created and work_day.sick_leave_hours != hours:
+                    work_day.sick_leave_hours = hours
+                    work_day.save()
+
+            # Move to the next day
+            current_date += timedelta(days=1)
+            day_count += 1
 
 def radnik_profil(request, employee_id):
     employee = get_object_or_404(Employee, id=employee_id)
@@ -142,12 +187,14 @@ def radnik_profil(request, employee_id):
     free_days_choice_count = FreeDay.objects.filter(employee=employee, is_article_39=False).count()
     free_days_by_choice = FreeDay.objects.filter(employee=employee, is_article_39=False)
     vacations = Vacation.objects.filter(employee=employee)
+    sick_leaves = SickLeave.objects.filter(employee=employee)
     return render(request, 'scheduler/radnik_profil.html', {
         'employee': employee,
         'shift_types': shift_types,
         'free_days_choice_count': free_days_choice_count,
         'free_days_by_choice': free_days_by_choice,
         'vacations': vacations,
+        'sick_leaves': sick_leaves,
     })
 
 def handle_vacation(request, employee_id):
@@ -166,6 +213,25 @@ def handle_vacation(request, employee_id):
     
     # Save the vacation period
     Vacation.objects.create(employee=employee, start_date=start_date, end_date=end_date)
+    
+    return redirect('radnik_profil', employee_id=employee_id)
+
+def handle_sick_leave(request, employee_id):
+    employee = get_object_or_404(Employee, id=employee_id)
+    start_date = request.POST.get('start_date')
+    end_date = request.POST.get('end_date')
+    
+    # Convert start_date and end_date to date objects if they are strings
+    if isinstance(start_date, str):
+        start_date = parse_date(start_date)
+    if isinstance(end_date, str):
+        end_date = parse_date(end_date)
+    
+    # Call the existing handle_sick_leave_schedule function
+    handle_sick_leave_schedule(employee, start_date, end_date)
+    
+    # Save the sick leave period
+    SickLeave.objects.create(employee=employee, start_date=start_date, end_date=end_date)
     
     return redirect('radnik_profil', employee_id=employee_id)
 

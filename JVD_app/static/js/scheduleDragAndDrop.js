@@ -1,9 +1,22 @@
 document.addEventListener('DOMContentLoaded', function() {
     initDragAndDrop();
     fetchAndRenderSchedule();
+    populateMonthDropdown();
+    setupMonthNavigation();
+    // Add right-click event listener to employee blocks
+    document.querySelectorAll('.employee-block').forEach(block => {
+        block.addEventListener('contextmenu', function(event) {
+            event.preventDefault();
+            const employeeId = this.getAttribute('data-employee-id');
+            const date = this.getAttribute('data-date');
+            const shiftTypeId = this.getAttribute('data-shift-type-id');
+            openOvertimeModal(employeeId, date, shiftTypeId);
+        });
+    });
 });
 
 let drake = null;
+
 
 function initDragAndDrop() {
     if (drake) {
@@ -12,38 +25,52 @@ function initDragAndDrop() {
         drake = null;
     }
 
-    const employeeList = document.getElementById('employees-list');
+    const employeeContainers = Array.from(document.querySelectorAll('.group-container'));
     const dropzones = Array.from(document.querySelectorAll('.dropzone'));
-    console.log(`Found ${dropzones.length} dropzones for initialization.`);
+    const deleteZone = document.getElementById('delete-zone');
 
-    if (!employeeList || dropzones.length === 0) {
+    console.log(`Found ${dropzones.length} dropzones and ${employeeContainers.length} employee containers for initialization.`);
+    console.log(`Delete zone found: ${deleteZone ? 'Yes' : 'No'}`);
+
+    if (employeeContainers.length === 0 || dropzones.length === 0 || !deleteZone) {
         console.error('Drag and drop initialization aborted: Required elements not found.');
         return;
     }
 
-    const containers = [employeeList].concat(dropzones);
-  
+    const containers = employeeContainers.concat(dropzones, [deleteZone]);
+
     drake = dragula(containers, {
-        copy: (el, source) => source === employeeList,
-        accepts: (el, target) => target !== employeeList && !target.classList.contains('employee-block'),
+        copy: (el, source) => el.classList.contains('employee-block') && employeeContainers.includes(source),
+        accepts: (el, target) => target.classList.contains('dropzone') || target === deleteZone,
         removeOnSpill: false,
         revertOnSpill: true,
         mirrorContainer: document.body,
         moves: (el) => {
-            el.classList.add('employee-block'); // Ensure the mirror gets the correct class
-            return true;
+            return el.classList.contains('employee-block');
         }
     });
 
     drake.on('drop', function(el, target, source) {
-        if (target === employeeList) return;
+        if (!target) return;
     
+
         const employeeId = el.getAttribute('data-employee-id');
-        const date = target.getAttribute('data-date');
-        const shiftTypeId = target.getAttribute('data-shift-type-id');
+        let date = target.getAttribute('data-date');
+        let shiftTypeId = target.getAttribute('data-shift-type-id');
         const group = el.getAttribute('data-group');
     
-        let action = source !== employeeList && source.classList.contains('dropzone') ? 'move' : 'add';
+        // Check if the target is the delete zone
+        if (target === deleteZone) {
+            if (!date) date = source.getAttribute('data-date');
+            if (!shiftTypeId) shiftTypeId = source.getAttribute('data-shift-type-id');
+            const elementId = el.getAttribute('id');
+            deleteScheduleEntry(employeeId, date, shiftTypeId, elementId);
+            el.remove();
+            return;
+        }
+    
+        // Proceed with the regular drop logic
+        let action = !employeeContainers.includes(source) && source.classList.contains('dropzone') ? 'move' : 'add';
         let originalDate = action === 'move' ? source.getAttribute('data-date') : date;
         let originalShiftTypeId = action === 'move' ? source.getAttribute('data-shift-type-id') : shiftTypeId;
     
@@ -55,12 +82,9 @@ function initDragAndDrop() {
         el.setAttribute('data-date', date);
         el.setAttribute('data-shift-type-id', shiftTypeId);
     
-        // Add buttons
-        addButtonsToEmployeeBlock(el);
-    
         updateSchedule(employeeId, shiftTypeId, date, action, originalDate, originalShiftTypeId);
     
-        if (source === employeeList) {
+        if (employeeContainers.includes(source)) {
             let clonedEl = el.cloneNode(true);
             clonedEl.setAttribute('id', elementId); // Set the ID on the cloned element
             clonedEl.setAttribute('data-shift-type-id', shiftTypeId);
@@ -68,53 +92,38 @@ function initDragAndDrop() {
             clonedEl.setAttribute('data-group', group); // Ensure group is set on clone
             clonedEl.classList.add(`group-${group}`);
             target.appendChild(clonedEl);
+            Alpine.initTree(clonedEl);
             drake.containers.push(clonedEl);
         } else {
             el.setAttribute('data-shift-type-id', shiftTypeId);
             target.appendChild(el);
+            Alpine.initTree(el); 
         }
     });
 
     drake.on('drag', function(el) {
         console.log('Dragging', el);
     });
-    
+
     drake.on('dragend', function(el) {
         const shadows = document.querySelectorAll('.gu-mirror, .gu-transit');
         shadows.forEach(shadow => shadow.remove());
     });
-};
 
-function addButtonsToEmployeeBlock(el) {
-    const elementId = el.getAttribute('id');
+    drake.on('over', function(el, container) {
+        if (container === deleteZone) {
+            container.classList.add('bg-red-500');
+        }
+    });
 
-    if (!el.querySelector('.cog-btn')) {
-        const cogButton = document.createElement('button');
-        cogButton.className = 'cog-btn';
-        cogButton.innerHTML = '⚙️';
-        cogButton.onclick = () => openOvertimeModal(
-            el.getAttribute('data-employee-id'), 
-            el.getAttribute('data-date'), 
-            el.getAttribute('data-shift-type-id')
-        );
-        el.appendChild(cogButton);
-    }
-
-    if (!el.querySelector('.delete-btn')) {
-        const deleteButton = document.createElement('button');
-        deleteButton.className = 'delete-btn';
-        deleteButton.textContent = '❌';
-        deleteButton.onclick = () => {
-            deleteScheduleEntry(
-                el.getAttribute('data-employee-id'), 
-                el.getAttribute('data-date'), 
-                el.getAttribute('data-shift-type-id'), 
-                el.getAttribute('id')
-            );
-        };
-        el.appendChild(deleteButton);
-    }
+    drake.on('out', function(el, container) {
+        if (container === deleteZone) {
+            container.classList.remove('bg-red-500');
+        }
+    });
 }
+
+
 
 function updateSchedule(employeeId, shiftTypeId, date, action, originalDate, originalShiftTypeId) {
     const url = `/update_schedule/`;
@@ -153,30 +162,56 @@ function updateSchedule(employeeId, shiftTypeId, date, action, originalDate, ori
 
 function fetchAndRenderSchedule() {
     let monthStart = document.getElementById('schedule-grid').getAttribute('data-month-start');
+    console.log('MonthStart:', monthStart); // Confirming the month start
     let startDate = moment(monthStart);
     let endDate = moment(startDate).endOf('month');
 
     const startFormat = startDate.format('YYYY-MM-DD');
     const endFormat = endDate.format('YYYY-MM-DD');
-
-    fetch(`/api/schedule/?week_start=${startFormat}&week_end=${endFormat}`)
-    .then(response => response.json())
+    
+    // Fetch HTML and update the DOM
+    fetch(`/schedule/?month_start=${monthStart}`, {
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'  // Important for Django to recognize this as an AJAX request
+        }
+    })
+    .then(response => response.text())  // Expect HTML in response
+    .then(html => {
+        document.getElementById('schedule-grid').innerHTML = html;
+        // After HTML is updated, fetch JSON data
+        return fetch(`/api/schedule/?week_start=${startFormat}&week_end=${endFormat}`);
+    })
+    .then(response => response.json()) // Process JSON response
     .then(data => {
-        document.querySelectorAll('.dropzone').forEach(dz => dz.innerHTML = ''); // Clear existing blocks
-        data.forEach(({ date, shift_type_id, employees }) => {
-            const cell = document.querySelector(`.dropzone[data-shift-type-id="${shift_type_id}"][data-date="${date}"]`);
-            if (!cell) {
-                console.error('Dropzone not found for date:', date, 'and shift type ID:', shift_type_id);
-                return;
-            }
-            employees.forEach(employee => {
-                const employeeBlock = createEmployeeBlock(employee, date, shift_type_id);
-                cell.appendChild(employeeBlock);
+        updateScheduleGrid(data);
+        initDragAndDrop();  // Re-initialize drag-and-drop functionality
+        // Reinitialize right-click event listener
+        document.querySelectorAll('.employee-block').forEach(block => {
+            block.addEventListener('contextmenu', function(event) {
+                event.preventDefault();
+                const employeeId = this.getAttribute('data-employee-id');
+                const date = this.getAttribute('data-date');
+                const shiftTypeId = this.getAttribute('data-shift-type-id');
+                openOvertimeModal(employeeId, date, shiftTypeId);
             });
         });
-        console.log('Schedule fetched and rendered successfully.');
     })
-    .catch(error => console.error('Error fetching schedule:', error));
+    .catch(error => console.error('Error during fetch operations:', error));
+}
+function updateScheduleGrid(data) {
+    document.querySelectorAll('.dropzone').forEach(dz => dz.innerHTML = '');
+    data.forEach(({ date, shift_type_id, employees }) => {
+        const cell = document.querySelector(`.dropzone[data-shift-type-id="${shift_type_id}"][data-date="${date}"]`);
+        if (!cell) {
+            console.error('Dropzone not found for date:', date, 'and shift type ID:', shift_type_id);
+            return;
+        }
+        employees.forEach(employee => {
+            const employeeBlock = createEmployeeBlock(employee, date, shift_type_id);
+            cell.appendChild(employeeBlock);
+        });
+    });
+    console.log('Schedule fetched and rendered successfully.');
 }
 
 function createEmployeeBlock(employee, date, shiftTypeId) {
@@ -194,10 +229,10 @@ function createEmployeeBlock(employee, date, shiftTypeId) {
     nameSpan.textContent = `${employee.surname} ${employee.name.charAt(0)}. (${employee.group})`;
     div.appendChild(nameSpan);
 
-    addButtonsToEmployeeBlock(div);
-
     return div;
 }
+
+
 
 function openOvertimeModal(employeeId, date, shiftTypeId) {
     console.log(`Opening modal for Employee ID: ${employeeId}, Date: ${date}, Shift Type ID: ${shiftTypeId}`);
@@ -292,6 +327,7 @@ function deleteScheduleEntry(employeeId, date, shiftTypeId, elementId) {
     });
 
     console.log(`Attempting to delete employee block with ID: ${elementId}`);
+    console.log(`Request body: ${requestBody}`); // Debug statement
 
     fetch(url, {
         method: 'POST',
@@ -348,3 +384,78 @@ function getCookie(name) {
     }
     return cookieValue;
 }
+
+function changeMonth(offset) {
+    const monthStart = document.getElementById('schedule-grid').getAttribute('data-month-start');
+    let currentDate = moment(monthStart).add(offset, 'months');
+    updateMonthStart(currentDate.format('YYYY-MM-DD'));
+}
+
+function setupMonthNavigation() {
+    const prevMonthButton = document.getElementById('prev-month');
+    const nextMonthButton = document.getElementById('next-month');
+    const monthSelect = document.getElementById('month-select');
+
+    prevMonthButton.addEventListener('click', () => changeMonth(-1));
+    nextMonthButton.addEventListener('click', () => changeMonth(1));
+    monthSelect.addEventListener('change', (event) => {
+        updateMonthStart(event.target.value);
+        fetchAndRenderSchedule();
+    });
+}
+
+function updateMonthStart(newDate) {
+    document.getElementById('schedule-grid').setAttribute('data-month-start', newDate);
+    document.getElementById('month-select').value = newDate;
+    fetchAndRenderSchedule();  // Update the schedule according to the new month
+}
+
+function populateMonthDropdown() {
+    const monthSelect = document.getElementById('month-select');
+    monthSelect.innerHTML = ''; // Clear existing options
+
+    // Get the current year to make sure the dropdown reflects the current and accurate year
+    const currentYear = new Date().getFullYear();
+
+    // Define Croatian month names
+    const monthNames = ['Siječanj', 'Veljača', 'Ožujak', 'Travanj', 'Svibanj', 'Lipanj', 
+                        'Srpanj', 'Kolovoz', 'Rujan', 'Listopad', 'Studeni', 'Prosinac'];
+
+    // Create options for each month
+    monthNames.forEach((name, index) => {
+        const month = index + 1; // Month index starts from 1 (January) to 12 (December)
+        const monthValue = `${currentYear}-${month.toString().padStart(2, '0')}-01`; // Format to YYYY-MM-DD
+        const option = document.createElement('option');
+        option.value = monthValue;
+        option.textContent = `${name} ${currentYear}`;
+        monthSelect.appendChild(option);
+    });
+
+    // Automatically select the current month in the dropdown
+    updateMonthSelection();
+}
+
+function updateMonthSelection() {
+    const currentMonthStart = document.getElementById('schedule-grid').getAttribute('data-month-start');
+    if (!currentMonthStart) {
+        const today = new Date();
+        const currentMonthFormatted = `${today.getFullYear()}-${(today.getMonth() + 1).toString().padStart(2, '0')}-01`;
+        document.getElementById('schedule-grid').setAttribute('data-month-start', currentMonthFormatted);
+        document.getElementById('month-select').value = currentMonthFormatted;
+    } else {
+        document.getElementById('month-select').value = currentMonthStart;
+    }
+}
+
+function debounce(func, wait) {
+    let timeout;
+    return function executedFunction(...args) {
+        const later = () => {
+            clearTimeout(timeout);
+            func(...args);
+        };
+        clearTimeout(timeout);
+        timeout = setTimeout(later, wait);
+    };
+}
+

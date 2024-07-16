@@ -1,0 +1,39 @@
+{% load static %}
+
+<div class="bg-gray-100 shadow-md p-2 flex items-center text-black w-full sticky top-0 relative">
+  <!-- Delete Zone -->
+  <div id="delete-zone" class="delete-zone bg-gray-200 text-black flex items-center justify-center rounded-md w-32 h-10 ml-2">
+      <img src="{% static 'icons/deleteB.svg' %}" alt="Delete Zone" class="w-6 h-6">
+  </div>
+
+  <!-- Navigation Arrows and Dropdown Centered Relative to the Toolbar -->
+  <div class="flex flex-1 justify-center items-center space-x-4">
+      <button id="prev-month" class="bg-gray-200 text-black px-2 py-1 rounded-md">
+          <img src="{% static 'icons/chevron_left.png' %}" alt="Previous" class="w-6 h-6">
+      </button>
+      <select id="month-select" class="bg-gray-200 text-black px-4 py-2 rounded-md">
+          <!-- Dynamically filled with JavaScript -->
+      </select>
+      <button id="next-month" class="bg-gray-200 text-black px-2 py-1 rounded-md">
+          <img src="{% static 'icons/chevron_right.png' %}" alt="Next" class="w-6 h-6">
+      </button>
+  </div>
+
+  <!-- Filters on the Right -->
+  <div class="flex items-center space-x-4">
+      <!-- Date Filter Icon -->
+      <button class="bg-gray-200 text-black p-2 rounded-md">
+          <img src="{% static 'icons/date_filter.svg' %}" alt="Date Filter" class="w-6 h-6">
+      </button>
+
+      <!-- Visibility Filter Icon -->
+      <button class="bg-gray-200 text-black p-2 rounded-md">
+          <img src="{% static 'icons/filter.svg' %}" alt="Visibility Filter" class="w-6 h-6">
+      </button>
+
+            <!-- Visibility Filter Icon -->
+      <button class="bg-gray-200 text-black p-2 rounded-md">
+          <img src="{% static 'icons/edit.svg' %}" alt="Edit" class="w-6 h-6">
+      </button>
+  </div>
+</div>

@@ -141,6 +141,14 @@ class Vacation(models.Model):
 
     def __str__(self):
         return f"Vacation from {self.start_date} to {self.end_date} for {self.employee.name}"
+    
+class SickLeave(models.Model):
+    employee = models.ForeignKey(Employee, on_delete=models.CASCADE)
+    start_date = models.DateField()
+    end_date = models.DateField()
+
+    def __str__(self):
+        return f"Sick leave from {self.start_date} to {self.end_date} for {self.employee.name}"
 
 class ScheduleEntry(models.Model):
     date = models.DateField()

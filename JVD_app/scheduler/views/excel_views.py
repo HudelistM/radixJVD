@@ -5,7 +5,7 @@ from calendar import monthrange
 from django.db.models import Sum
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
-from datetime import date, timedelta
+from datetime import date, timedelta, datetime
 from ..models import ScheduleEntry, ShiftType, Employee, WorkDay, FixedHourFund, Holiday, ExcessHours
 from io import BytesIO
 import calendar
@@ -121,9 +121,9 @@ def create_schedule_excel(week_dates, shift_types, schedule_data, author_name):
 
 @login_required
 def download_schedule(request):
-    start_date_str = request.GET.get('week_start')
-    if start_date_str:
-        start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
+    month_str = request.GET.get('month')
+    if month_str:
+        start_date = datetime.strptime(month_str, '%Y-%m-%d').date()
     else:
         today = date.today()
         start_date = today - timedelta(days=today.weekday())
@@ -151,9 +151,14 @@ def download_schedule(request):
 
 @login_required
 def download_sihterica(request):
-    current_date = date.today()
-    current_month = current_date.month
-    current_year = current_date.year
+    month_str = request.GET.get('month')
+    if month_str:
+        start_date = datetime.strptime(month_str, '%Y-%m-%d').date()
+    else:
+        start_date = date.today().replace(day=1)
+    
+    current_year = start_date.year
+    current_month = start_date.month
     days_in_month = monthrange(current_year, current_month)[1]
     
     employees = Employee.objects.all().order_by('group')
@@ -193,7 +198,7 @@ def download_sihterica(request):
     output.seek(0)
 
     response = HttpResponse(content=output.read(), content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-    response['Content-Disposition'] = 'attachment; filename="sihterica.xlsx"'
+    response['Content-Disposition'] = f'attachment; filename="sihterica_{current_month}_{current_year}.xlsx"'
     return response
 
 def setup_formats(workbook):
@@ -237,9 +242,12 @@ def setup_timesheet_formats(workbook):
     }
     # Group text color formats
     formats['group_text_formats'] = {
-        '1': workbook.add_format({'color': '#1E8449', 'align': 'center', 'valign': 'vcenter', 'font_size': 12, 'bold': True}),
-        '2': workbook.add_format({'color': '#D35400', 'align': 'center', 'valign': 'vcenter', 'font_size': 12, 'bold': True}),
-        '3': workbook.add_format({'color': '#2980B9', 'align': 'center', 'valign': 'vcenter', 'font_size': 12, 'bold': True}),
+        '1': workbook.add_format({'color': '#9C7C14', 'align': 'center', 'valign': 'vcenter', 'font_size': 12, 'bold': True}),
+        '2': workbook.add_format({'color': '#c9242d', 'align': 'center', 'valign': 'vcenter', 'font_size': 12, 'bold': True}),
+        '3': workbook.add_format({'color': '#118f37', 'align': 'center', 'valign': 'vcenter', 'font_size': 12, 'bold': True}),
+        '4': workbook.add_format({'color': '#16448a', 'align': 'center', 'valign': 'vcenter', 'font_size': 12, 'bold': True}),
+        '5': workbook.add_format({'color': '#000000', 'align': 'center', 'valign': 'vcenter', 'font_size': 12, 'bold': True}),
+        '6': workbook.add_format({'color': '#6b157a', 'align': 'center', 'valign': 'vcenter', 'font_size': 12, 'bold': True}),
     }
     return formats
 
@@ -522,6 +530,22 @@ def generate_vacation_hours(worksheet, employees, current_year, current_month, f
 
         agg_vacation_start_row += 1
 
+def sum_decimal_hours(decimal_hours):
+    """Sums a list of decimal hours, converting minute values correctly."""
+    total_hours = 0
+    total_minutes = 0
+    for decimal in decimal_hours:
+        hours = int(decimal)
+        minutes = (decimal - hours) * 100
+        total_hours += hours
+        total_minutes += minutes
+
+    # Convert total minutes to hours and minutes
+    total_hours += total_minutes // 60
+    total_minutes = total_minutes % 60
+
+    return total_hours + total_minutes / 100.0
+
 def generate_overtime_hours(worksheet, employees, current_year, current_month, formats):
     worksheet.set_column(0, 0, 30)  # Employee name column
     worksheet.set_column(1, 1, 5)
@@ -543,11 +567,12 @@ def generate_overtime_hours(worksheet, employees, current_year, current_month, f
 
     for idx, employee in enumerate(employees):
         work_days = WorkDay.objects.filter(employee=employee, date__year=current_year, date__month=current_month)
-        total_overtime_preparation = work_days.aggregate(Sum('overtime_hours'))['overtime_hours__sum'] or 0
-        total_overtime_service = work_days.aggregate(Sum('overtime_service'))['overtime_service__sum'] or 0
-        total_overtime_excess_fond = work_days.aggregate(Sum('overtime_excess_fond'))['overtime_excess_fond__sum'] or 0
-        total_overtime_free_day = work_days.aggregate(Sum('overtime_free_day'))['overtime_free_day__sum'] or 0
-        total_overtime_free_day_service = work_days.aggregate(Sum('overtime_free_day_service'))['overtime_free_day_service__sum'] or 0
+        
+        total_overtime_preparation = sum_decimal_hours([day.overtime_hours for day in work_days])
+        total_overtime_service = sum_decimal_hours([day.overtime_service for day in work_days])
+        total_overtime_excess_fond = sum_decimal_hours([day.overtime_excess_fond for day in work_days])
+        total_overtime_free_day = sum_decimal_hours([day.overtime_free_day for day in work_days])
+        total_overtime_free_day_service = sum_decimal_hours([day.overtime_free_day_service for day in work_days])
 
         total_overtime = total_overtime_preparation + total_overtime_service + total_overtime_excess_fond
         total_overtime_service_total = total_overtime_free_day + total_overtime_free_day_service
