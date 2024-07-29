@@ -152,10 +152,16 @@
                 <h3 class="text-xl font-semibold mb-2">Godišnji Odmori</h3>
                 <ul class="space-y-2">
                     {% for vacation in vacations %}
-                    <li class="bg-gray-100 p-4 rounded-lg shadow">
+                    <li class="bg-gray-100 p-4 rounded-lg shadow flex justify-between items-center">
                         <div>
                             <p class="text-gray-700"><strong>Od:</strong> {{ vacation.start_date|date:"d.m.Y" }} <strong>Do:</strong> {{ vacation.end_date|date:"d.m.Y" }}</p>
                         </div>
+                        <form method="POST" action="{% url 'delete_vacation' vacation.id %}">
+                            {% csrf_token %}
+                            <button type="submit">
+                                <img src="{% static 'icons/deleteB.svg' %}" alt="Delete" class="h-7 w-7 mr-2 border-gray-950 rounded-md hover:bg-red-500 transition-colors duration-300 hover:shadow-md">
+                            </button>
+                        </form>
                     </li>
                     {% empty %}
                     <li class="bg-gray-100 p-4 rounded-lg shadow">
@@ -191,10 +197,16 @@
                 <h3 class="text-xl font-semibold mb-2">Bolovanja</h3>
                 <ul class="space-y-2">
                     {% for sick_leave in sick_leaves %}
-                    <li class="bg-gray-100 p-4 rounded-lg shadow">
+                    <li class="bg-gray-100 p-4 rounded-lg shadow flex justify-between items-center">
                         <div>
                             <p class="text-gray-700"><strong>Od:</strong> {{ sick_leave.start_date|date:"d.m.Y" }} <strong>Do:</strong> {{ sick_leave.end_date|date:"d.m.Y" }}</p>
                         </div>
+                        <form method="POST" action="{% url 'delete_sick_leave' sick_leave.id %}">
+                            {% csrf_token %}
+                            <button type="submit" class="text-red-500 hover:text-red-700">
+                                <img src="{% static 'icons/deleteB.svg' %}" alt="Delete" class="w-6 h-6">
+                            </button>
+                        </form>
                     </li>
                     {% empty %}
                     <li class="bg-gray-100 p-4 rounded-lg shadow">

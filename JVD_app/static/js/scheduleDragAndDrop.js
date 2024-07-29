@@ -1,22 +1,91 @@
 document.addEventListener('DOMContentLoaded', function() {
+    if (!Alpine.store('scheduleManager')) {
+        Alpine.store('scheduleManager', {
+        selectedRow: null,
+        featureToggle: false,
+        selectRow(index) {
+            if (!this.featureToggle) return;
+
+            if (this.selectedRow === index) {
+                this.selectedRow = null;
+            } else {
+                this.selectedRow = index;
+            }
+            this.updateEmployeeLock();
+        },
+        updateEmployeeLock() {
+            // Remove lock from all employee blocks in the employee list
+            document.querySelectorAll('#employees-list .employee-block').forEach(block => {
+                block.classList.remove('employee-locked');
+                block.setAttribute('draggable', 'true');
+            });
+
+            // Return if feature toggle is off or no row is selected
+            if (!this.featureToggle || this.selectedRow === null) return;
+
+            const selectedRow = document.querySelectorAll('tbody tr')[this.selectedRow];
+            console.log('Selected row:', this.selectedRow, selectedRow); // Debug log
+
+            let employeeCount = {};
+
+            // Count employees in the selected row
+            selectedRow.querySelectorAll('.employee-block').forEach(block => {
+                const employeeId = block.getAttribute('data-employee-id');
+                console.log('Found employee in row:', employeeId); // Debug log
+                if (!employeeCount[employeeId]) {
+                    employeeCount[employeeId] = 0;
+                }
+                employeeCount[employeeId]++;
+            });
+
+            console.log('Employee count in selected row:', employeeCount); // Debug log
+
+            // Gray out employees in the employee list if they are present in the selected row
+            document.querySelectorAll('#employees-list .employee-block').forEach(block => {
+                const employeeId = block.getAttribute('data-employee-id');
+                if (employeeCount[employeeId]) {
+                    block.classList.add('employee-locked');
+                    block.setAttribute('draggable', 'false');
+                    console.log('Locking employee:', employeeId); // Debug log
+                }
+            });
+        },
+        setFeatureToggle(isChecked) {
+            this.featureToggle = isChecked;
+            this.updateEmployeeLock();
+        }
+    });
+
+
+    document.getElementById('employee-lock-toggle').addEventListener('change', function(event) {
+        const isChecked = event.target.checked;
+        Alpine.store('scheduleManager').setFeatureToggle(isChecked);
+    });
+
     initDragAndDrop();
     fetchAndRenderSchedule();
     populateMonthDropdown();
     setupMonthNavigation();
-    // Add right-click event listener to employee blocks
-    document.querySelectorAll('.employee-block').forEach(block => {
-        block.addEventListener('contextmenu', function(event) {
-            event.preventDefault();
-            const employeeId = this.getAttribute('data-employee-id');
-            const date = this.getAttribute('data-date');
-            const shiftTypeId = this.getAttribute('data-shift-type-id');
-            openOvertimeModal(employeeId, date, shiftTypeId);
-        });
+    attachRightClickEventListeners();
+    initializeFeatureToggle();
+}});
+
+function initializeFeatureToggle() {
+    const toggle = document.getElementById('employee-lock-toggle');
+    toggle.addEventListener('change', function(event) {
+        const isChecked = event.target.checked;
+        Alpine.store('scheduleManager').setFeatureToggle(isChecked);
     });
-});
+}
+
+function reinitializeComponents() {
+    initDragAndDrop();
+    attachRightClickEventListeners();
+    initializeFeatureToggle();
+    Alpine.store('scheduleManager').updateEmployeeLock();
+}
 
 let drake = null;
-
 
 function initDragAndDrop() {
     if (drake) {
@@ -52,13 +121,12 @@ function initDragAndDrop() {
 
     drake.on('drop', function(el, target, source) {
         if (!target) return;
-    
 
         const employeeId = el.getAttribute('data-employee-id');
         let date = target.getAttribute('data-date');
         let shiftTypeId = target.getAttribute('data-shift-type-id');
         const group = el.getAttribute('data-group');
-    
+
         // Check if the target is the delete zone
         if (target === deleteZone) {
             if (!date) date = source.getAttribute('data-date');
@@ -68,22 +136,22 @@ function initDragAndDrop() {
             el.remove();
             return;
         }
-    
+
         // Proceed with the regular drop logic
         let action = !employeeContainers.includes(source) && source.classList.contains('dropzone') ? 'move' : 'add';
         let originalDate = action === 'move' ? source.getAttribute('data-date') : date;
         let originalShiftTypeId = action === 'move' ? source.getAttribute('data-shift-type-id') : shiftTypeId;
-    
+
         // Set the element ID
         const elementId = `employee-block-${employeeId}-${date}-${shiftTypeId}`;
         el.setAttribute('id', elementId);
-    
+
         // Update data attributes
         el.setAttribute('data-date', date);
         el.setAttribute('data-shift-type-id', shiftTypeId);
-    
+
         updateSchedule(employeeId, shiftTypeId, date, action, originalDate, originalShiftTypeId);
-    
+
         if (employeeContainers.includes(source)) {
             let clonedEl = el.cloneNode(true);
             clonedEl.setAttribute('id', elementId); // Set the ID on the cloned element
@@ -97,8 +165,12 @@ function initDragAndDrop() {
         } else {
             el.setAttribute('data-shift-type-id', shiftTypeId);
             target.appendChild(el);
-            Alpine.initTree(el); 
+            Alpine.initTree(el);
         }
+
+        Alpine.store('scheduleManager').updateEmployeeLock();
+        // Reattach right-click event listener after drop
+        attachRightClickEventListeners();
     });
 
     drake.on('drag', function(el) {
@@ -123,8 +195,6 @@ function initDragAndDrop() {
     });
 }
 
-
-
 function updateSchedule(employeeId, shiftTypeId, date, action, originalDate, originalShiftTypeId) {
     const url = `/update_schedule/`;
     const requestBody = JSON.stringify({
@@ -135,9 +205,9 @@ function updateSchedule(employeeId, shiftTypeId, date, action, originalDate, ori
         originalDate: originalDate,
         originalShiftTypeId: originalShiftTypeId
     });
-  
+
     console.log("Sending request with body:", requestBody);
-  
+
     fetch(url, {
         method: 'POST',
         headers: {
@@ -163,12 +233,13 @@ function updateSchedule(employeeId, shiftTypeId, date, action, originalDate, ori
 function fetchAndRenderSchedule() {
     let monthStart = document.getElementById('schedule-grid').getAttribute('data-month-start');
     console.log('MonthStart:', monthStart); // Confirming the month start
-    let startDate = moment(monthStart);
-    let endDate = moment(startDate).endOf('month');
+    let startDate = moment(monthStart).startOf('month');
+    let endDate = moment(monthStart).endOf('month');
 
     const startFormat = startDate.format('YYYY-MM-DD');
     const endFormat = endDate.format('YYYY-MM-DD');
-    
+
+
     // Fetch HTML and update the DOM
     fetch(`/schedule/?month_start=${monthStart}`, {
         headers: {
@@ -179,25 +250,16 @@ function fetchAndRenderSchedule() {
     .then(html => {
         document.getElementById('schedule-grid').innerHTML = html;
         // After HTML is updated, fetch JSON data
-        return fetch(`/api/schedule/?week_start=${startFormat}&week_end=${endFormat}`);
+        return fetch(`/api/schedule/?month_start=${startFormat}&month_end=${endFormat}`);
     })
     .then(response => response.json()) // Process JSON response
     .then(data => {
         updateScheduleGrid(data);
-        initDragAndDrop();  // Re-initialize drag-and-drop functionality
-        // Reinitialize right-click event listener
-        document.querySelectorAll('.employee-block').forEach(block => {
-            block.addEventListener('contextmenu', function(event) {
-                event.preventDefault();
-                const employeeId = this.getAttribute('data-employee-id');
-                const date = this.getAttribute('data-date');
-                const shiftTypeId = this.getAttribute('data-shift-type-id');
-                openOvertimeModal(employeeId, date, shiftTypeId);
-            });
-        });
+        reinitializeComponents(); 
     })
     .catch(error => console.error('Error during fetch operations:', error));
 }
+
 function updateScheduleGrid(data) {
     document.querySelectorAll('.dropzone').forEach(dz => dz.innerHTML = '');
     data.forEach(({ date, shift_type_id, employees }) => {
@@ -212,6 +274,9 @@ function updateScheduleGrid(data) {
         });
     });
     console.log('Schedule fetched and rendered successfully.');
+
+    // Reattach right-click event listener after updating the schedule grid
+    attachRightClickEventListeners();
 }
 
 function createEmployeeBlock(employee, date, shiftTypeId) {
@@ -447,15 +512,18 @@ function updateMonthSelection() {
     }
 }
 
-function debounce(func, wait) {
-    let timeout;
-    return function executedFunction(...args) {
-        const later = () => {
-            clearTimeout(timeout);
-            func(...args);
-        };
-        clearTimeout(timeout);
-        timeout = setTimeout(later, wait);
-    };
+function attachRightClickEventListeners() {
+    document.querySelectorAll('.employee-block').forEach(block => {
+        block.removeEventListener('contextmenu', handleContextMenu); // Remove existing listeners to avoid duplication
+        block.addEventListener('contextmenu', handleContextMenu); // Attach the new listener
+    });
+}
+
+function handleContextMenu(event) {
+    event.preventDefault();
+    const employeeId = this.getAttribute('data-employee-id');
+    const date = this.getAttribute('data-date');
+    const shiftTypeId = this.getAttribute('data-shift-type-id');
+    openOvertimeModal(employeeId, date, shiftTypeId);
 }
 

@@ -37,7 +37,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    document.getElementById('employee-form').addEventListener('submit', function(event) {
+    form.addEventListener('submit', function(event) {
         event.preventDefault();
         const url = this.action;
         const formData = new FormData(this);
@@ -50,34 +50,77 @@ document.addEventListener('DOMContentLoaded', () => {
         })
         .then(response => response.json())
         .then(data => {
-            console.log('Success:', data);
-            window.location.reload();  // Refresh the page to reflect the changes
+            if (data.error) {
+                console.error('Error:', data.error);
+                return;
+            }
+
+            const message = data.message;
+
+            // Show success message
+            showSuccessMessage(message);
+
+            // Reload the employee list
+            window.location.reload();
+
+            // Close the modal
+            modal.classList.add('hidden', 'opacity-0', 'pointer-events-none');
         })
         .catch(error => console.error('Error:', error));
     });
 
-    deleteButtons.forEach(button => {
-        button.addEventListener('click', function() {
-            const employeeId = this.getAttribute('data-id');
-            if (confirm('Are you sure you want to delete this employee?')) {
-                fetch(`/delete_employee/${employeeId}`, {
-                    method: 'DELETE',
-                    headers: {
-                        'X-CSRFToken': getCookie('csrftoken'), // Get CSRF token from cookies
-                        'Content-Type': 'application/json'
-                    },
-                }).then(response => {
-                    if (response.ok) {
-                        window.location.reload(); // Reload the page to reflect changes
-                    } else {
-                        console.error('Failed to delete:', response.status);
-                    }
-                }).catch(error => {
-                    console.error('Error:', error);
-                });
-            }
+    function showSuccessMessage(message) {
+        const successMessage = document.createElement('div');
+        successMessage.id = "success-message";
+        successMessage.className = "p-4 mb-4 text-sm text-green-800 rounded-lg bg-green-50 dark:bg-gray-800 dark:text-green-400";
+        successMessage.role = "alert";
+        successMessage.textContent = message;
+        successMessageContainer.appendChild(successMessage);
+        setTimeout(() => {
+            successMessage.remove();
+        }, 2000);
+    }
+        deleteButtons.forEach(button => {
+            button.addEventListener('click', function() {
+                const employeeId = this.getAttribute('data-id');
+                showDeleteConfirmation(employeeId);
+            });
         });
-    });
+    
+    function showDeleteConfirmation(employeeId) {
+        const modal = document.getElementById('delete-confirmation-modal');
+        const confirmButton = document.getElementById('confirm-delete');
+        const cancelButton = document.getElementById('cancel-delete');
+    
+        modal.classList.remove('hidden');
+    
+        confirmButton.onclick = () => {
+            deleteEmployee(employeeId);
+            modal.classList.add('hidden');
+        };
+    
+        cancelButton.onclick = () => {
+            modal.classList.add('hidden');
+        };
+    }
+    
+    function deleteEmployee(employeeId) {
+        fetch(`/delete_employee/${employeeId}`, {
+            method: 'DELETE',
+            headers: {
+                'X-CSRFToken': getCookie('csrftoken'), // Get CSRF token from cookies
+                'Content-Type': 'application/json'
+            },
+        }).then(response => {
+            if (response.ok) {
+                window.location.reload(); // Reload the page to reflect changes
+            } else {
+                console.error('Failed to delete:', response.status);
+            }
+        }).catch(error => {
+            console.error('Error:', error);
+        });
+    }
     
     function getCookie(name) {
         let cookieValue = null;
