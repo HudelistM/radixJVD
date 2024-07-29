@@ -32,7 +32,7 @@
 }
 
 .employee-block .employee-name {
-  @apply text-xs truncate z-50;
+  @apply text-xs truncate;
   max-width: 80px;
   transition: max-width 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
 }
@@ -101,7 +101,8 @@
   transition-delay: 0s;
 }
 
-/* Week and day coloring */
-.week-divider {
-  border-top: 2px solid #ccc;
+
+.employee-locked {
+  @apply text-white bg-gray-400
+  cursor: not-allowed;
 }

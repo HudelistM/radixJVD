@@ -1,7 +1,6 @@
 {% load custom_templates %}
 {% load custom_filters %}
 
-
 <div class="overflow-auto w-full" style="max-height: 80vh;">
   <table class="min-w-full table-auto">
     <thead class="sticky top-0 bg-gray-100 z-30">
@@ -12,39 +11,38 @@
         {% endfor %}
       </tr>
     </thead>
-    <tbody>
+    <tbody x-data="$store.scheduleManager">
       {% for day in month_dates %}
-        {% with weekday=day|date:"w" %}
-        {% if day|date:"W" != previous_week %}
-        <tr class="week-divider"></tr>
-        {% endif %}
-        <tr class="{% if weekday == '0' %} bg-yellow-100 {% elif weekday == '6' %} bg-green-100 {% endif %}">
-          <td class="px-2 py-1 border text-center max-w-24 date-header">
-            <div class="font-bold text-center">{{ day|date:"D"|translate_days }}</div> <!-- Use translate_days filter -->
-            <div class="mt-1 text-center">{{ day|date:"d.m.Y" }}</div> <!-- Margin-top for spacing -->
-          </td>
-          {% for shift_type in shift_types %}
-            <td class="items-center justify-center px-2 py-1 border min-w-[120px] dropzone bg-white p-1 rounded border-gray-400 min-h-[40px]" data-shift-type-id="{{ shift_type.id }}" data-date="{{ day|date:'Y-m-d' }}">
-              {% with day_str=day|date:"Y-m-d" %}
-                {% with schedule_entry=schedule_data|get_item:day_str|get_item:shift_type.id %}
+          {% with weekday=day|date:"w" %}
+          <tr :class="{'bg-blue-200': $store.scheduleManager.featureToggle && $store.scheduleManager.selectedRow === {{ forloop.counter0 }}}"
+              @click="$store.scheduleManager.selectRow({{ forloop.counter0 }})">
+              <td class="px-2 py-1 border text-center max-w-24 date-header">
+                  <div class="font-bold text-center">{{ day|date:"D"|translate_days }}</div>
+                  <div class="mt-1 text-center">{{ day|date:"d.m.Y" }}</div>
+              </td>
+              {% for shift_type in shift_types %}
+              <td class="items-center justify-center px-2 py-1 border min-w-[120px] dropzone bg-white rounded border-gray-400 min-h-[40px]"
+                  data-shift-type-id="{{ shift_type.id }}" data-date="{{ day|date:'Y-m-d' }}">
+                  {% with day_str=day|date:"Y-m-d" %}
+                  {% with schedule_entry=schedule_data|get_item:day_str|get_item:shift_type.id %}
                   {% if schedule_entry %}
-                    {% for employee in schedule_entry.employees.all %}
-                      <div class="employee-block group-{{ employee.group }}" 
-                          id="employee-block-{{ employee.id }}-{{ day|date:'Y-m-d' }}-{{ shift_type.id }}" 
-                          data-employee-id="{{ employee.id }}" 
-                          data-group="{{ employee.group }}" 
-                          data-shift-type-id="{{ shift_type.id }}">
-                        <span class="employee-name">{{ employee.name }} {{ employee.surname }}</span>
-                      </div>
-                    {% endfor %}
+                  {% for employee in schedule_entry.employees.all %}
+                  <div class="employee-block group-{{ employee.group }}" 
+                      id="employee-block-{{ employee.id }}-{{ day|date:'Y-m-d' }}-{{ shift_type.id }}" 
+                      data-employee-id="{{ employee.id }}" 
+                      data-group="{{ employee.group }}" 
+                      data-shift-type-id="{{ shift_type.id }}">
+                      <span class="employee-name">{{ employee.name }} {{ employee.surname }}</span>
+                  </div>
+                  {% endfor %}
                   {% endif %}
-                {% endwith %}
-              {% endwith %}
-            </td>
-          {% endfor %}
-        </tr>
-        {% with previous_week=day|date:"W" %}{% endwith %}
-        {% endwith %}
+                  {% endwith %}
+                  {% endwith %}
+              </td>
+              {% endfor %}
+          </tr>
+          {% with previous_week=day|date:"W" %}{% endwith %}
+          {% endwith %}
       {% endfor %}
     </tbody>
   </table>
@@ -74,4 +72,3 @@
       <button onclick="closeOvertimeDialog()" class="bg-red-500 hover:bg-red-700 text-white py-2 px-4 rounded ml-2">Odustani</button>
   </div>
 </div>
-

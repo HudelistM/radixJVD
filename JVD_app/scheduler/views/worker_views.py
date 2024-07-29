@@ -4,11 +4,13 @@ from django.shortcuts import render, redirect
 from django.contrib.auth import login
 from django.contrib import messages
 from django.http import JsonResponse
-from django.views.decorators.http import require_http_methods
 from django.utils.dateparse import parse_date
 from django.core import serializers
 from django.template.loader import render_to_string
 from django.shortcuts import get_object_or_404
+from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_http_methods
+from django.views.decorators.http import require_POST
 
 # Your app imports
 from ..forms import UserRegisterForm, EmployeeForm
@@ -317,4 +319,32 @@ def handle_free_day(request, employee_id):
         if created or not schedule.employees.filter(id=employee.id).exists():
             schedule.employees.add(employee)
     
+    return redirect('radnik_profil', employee_id=employee_id)
+
+@require_POST
+def delete_vacation(request, vacation_id):
+    vacation = get_object_or_404(Vacation, id=vacation_id)
+    employee_id = vacation.employee.id
+    start_date = vacation.start_date
+    end_date = vacation.end_date
+
+    # Delete related workdays and schedule entries
+    WorkDay.objects.filter(employee=vacation.employee, date__range=[start_date, end_date], shift_type__name="Godišnji odmor").delete()
+    ScheduleEntry.objects.filter(date__range=[start_date, end_date], shift_type__name="Godišnji odmor").delete()
+
+    vacation.delete()
+    return redirect('radnik_profil', employee_id=employee_id)
+
+@require_POST
+def delete_sick_leave(request, sick_leave_id):
+    sick_leave = get_object_or_404(SickLeave, id=sick_leave_id)
+    employee_id = sick_leave.employee.id
+    start_date = sick_leave.start_date
+    end_date = sick_leave.end_date
+
+    # Delete related workdays and schedule entries
+    WorkDay.objects.filter(employee=sick_leave.employee, date__range=[start_date, end_date], shift_type__name="Bolovanje").delete()
+    ScheduleEntry.objects.filter(date__range=[start_date, end_date], shift_type__name="Bolovanje").delete()
+
+    sick_leave.delete()
     return redirect('radnik_profil', employee_id=employee_id)
