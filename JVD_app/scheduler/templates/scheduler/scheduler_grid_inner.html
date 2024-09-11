@@ -6,16 +6,16 @@
     <thead class="sticky top-0 bg-gray-100 z-30">
       <tr>
         <th class="px-2 py-1 border text-center">Datum</th>
-        {% for shift_type in shift_types %}
+        {% for shift_type in shift_types|reorder_shifts %}
           <th class="px-2 py-1 border max-w-32 text-center text-pretty">{{ shift_type.name }}</th>
         {% endfor %}
       </tr>
     </thead>
-    <tbody x-data="$store.scheduleManager">
+    <tbody x-data>
       {% for day in month_dates %}
           {% with weekday=day|date:"w" %}
-          <tr :class="{'bg-blue-200': $store.scheduleManager.featureToggle && $store.scheduleManager.selectedRow === {{ forloop.counter0 }}}"
-              @click="$store.scheduleManager.selectRow({{ forloop.counter0 }})">
+          <tr :class="{'bg-blue-200': Alpine.store('scheduleManager').featureToggle && Alpine.store('scheduleManager').selectedRow === {{ forloop.counter0 }}}"
+          @click="Alpine.store('scheduleManager').selectRow({{ forloop.counter0 }})">
               <td class="px-2 py-1 border text-center max-w-24 date-header">
                   <div class="font-bold text-center">{{ day|date:"D"|translate_days }}</div>
                   <div class="mt-1 text-center">{{ day|date:"d.m.Y" }}</div>

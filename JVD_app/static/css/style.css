@@ -101,8 +101,6 @@
   transition-delay: 0s;
 }
 
-
 .employee-locked {
-  @apply text-white bg-gray-400
-  cursor: not-allowed;
+  @apply text-white bg-gray-400 cursor-not-allowed;
 }
