@@ -43,6 +43,31 @@ def move_shifts_to_end(shift_types, shift_names_to_move):
     shifted_to_end = [s for s in shift_types if s.name in shift_names_to_move]
     return normal_shifts + shifted_to_end
 
+@register.filter
+def reorder_shifts(shift_types):
+    # Define the desired full order of shifts
+    order = [
+        "1. Smjena", 
+        "2.smjena (Priprema od 7:00)", 
+        "Priprema od 19:00", 
+        "JANAF 1.smjena", 
+        "JANAF 2.Smjena", 
+        "Slobodan Dan 1", 
+        "Slobodan Dan 2", 
+        "Godišnji odmor", 
+        "Bolovanje", 
+        "INA 1.Smjena", 
+        "INA 2. Smjena"
+    ]
+    
+    # Create a map of shift names to their respective order index
+    order_map = {name: index for index, name in enumerate(order)}
+    
+    # Sort the shifts based on the predefined order
+    sorted_shifts = sorted(shift_types, key=lambda s: order_map.get(s.name, len(order_map)))
+    
+    return sorted_shifts
+
 @register.filter(name='translate_days')
 def translate_days(day):
     days = {

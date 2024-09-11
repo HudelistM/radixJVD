@@ -1,5 +1,6 @@
 # Excel imports
 import xlsxwriter
+from django.contrib.staticfiles import finders
 
 from calendar import monthrange
 from django.db.models import Sum
@@ -10,6 +11,10 @@ from ..models import ScheduleEntry, ShiftType, Employee, WorkDay, FixedHourFund,
 from io import BytesIO
 import calendar
 from django.contrib.auth.decorators import login_required
+
+import openpyxl
+from datetime import timedelta, datetime
+from openpyxl.utils import get_column_letter
 
 #--------------------------------------------------------------------------
 #--------------------- Generiranje Excel datoteki -------------------------
@@ -36,87 +41,43 @@ def croatian_day(date_obj):
     return day_names_cro[calendar.day_name[date_obj.weekday()]]
 
 
+def fill_dates_in_template(wb, start_date, month_start_points):
+    sheet = wb.active
+    
+    # Get the Monday of the week where the month starts
+    monday = start_date - timedelta(days=start_date.weekday())
+
+    for mini_table_start in month_start_points:
+        current_day = monday
+        for row in range(mini_table_start, mini_table_start + 49, 7):  # Each table spans 7 rows for each day
+            # B column pattern
+            sheet[f"B{row}"] = croatian_day(current_day)  # Day of the week (e.g., "PON")
+            sheet[f"B{row+1}"] = current_day.strftime('%d/%m')  # Day/Month
+            sheet[f"B{row+2}"] = current_day.year  # Year
+
+            current_day += timedelta(days=1)  # Move to the next day
+
 def create_schedule_excel(week_dates, shift_types, schedule_data, author_name):
-    output = BytesIO()
-    workbook = xlsxwriter.Workbook(output, {'in_memory': True})
-    worksheet = workbook.add_worksheet()
+    # Use Django staticfiles finders to locate the Excel template
+    template_path = finders.find('template/RASPORED_template.xlsx')
+    
+    if not template_path:
+        raise FileNotFoundError("The Excel template file was not found.")
+    
+    # Load the Excel workbook from the template
+    wb = openpyxl.load_workbook(template_path)
+    
+    # Fill the dates in the mini-tables
+    month_start_points = [7, 60, 113, 167, 220, 273]  # Starting rows for each mini table
+    fill_dates_in_template(wb, week_dates[0], month_start_points)
 
-    worksheet.set_landscape()
-    worksheet.set_paper(9)
-    worksheet.fit_to_pages(1, 1)
+    # Save the modified workbook to an in-memory stream (BytesIO)
+    from io import BytesIO
+    excel_file = BytesIO()
+    wb.save(excel_file)
+    excel_file.seek(0)
 
-    # Define formats
-    title_format = workbook.add_format({'bold': True, 'font_size': 18, 'align': 'center', 'valign': 'vcenter'})
-    author_format = workbook.add_format({'font_size': 12, 'align': 'right', 'valign': 'vcenter'})
-    header_format = workbook.add_format({'bold': True, 'bg_color': '#d9e1f2', 'align': 'center', 'valign': 'vcenter', 'text_wrap': True, 'border': 1})
-    date_format = workbook.add_format({'bold': True, 'align': 'center', 'valign': 'vcenter', 'font_size': 14, 'border': 2})
-    cell_format = workbook.add_format({'border': 1, 'align': 'center', 'valign': 'vcenter'})
-    saturday_date_format = workbook.add_format({'border': 1, 'align': 'center', 'valign': 'vcenter', 'bg_color': '#CCFFCC', 'font_size': 14})
-    sunday_date_format = workbook.add_format({'border': 1, 'align': 'center', 'valign': 'vcenter', 'bg_color': '#FFFF99', 'font_size': 14})
-
-    # Text color formats for groups
-    group_text_formats = {
-        '1': workbook.add_format({'color': '#1E8449'}),
-        '2': workbook.add_format({'color': '#D35400'}),
-        '3': workbook.add_format({'color': '#2980B9'}),
-        # Add more groups as needed
-    }
-
-    # Set column widths
-    worksheet.set_column(0, 0, 20)
-    for idx, _ in enumerate(shift_types, 1):
-        worksheet.set_column(idx, idx, 15)
-
-    # Write title and author rows
-    title = f"Weekly Schedule for {week_dates[0].strftime('%B')}"
-    worksheet.merge_range('A1:H1', title, title_format)
-    worksheet.merge_range('A2:H2', f"Made by: {author_name}", author_format)
-
-    # Write header row
-    headers = ['Dan Datum'] + [shift_type.name for shift_type in shift_types]
-    worksheet.write_row('A3', headers, header_format)
-
-    current_row = 3
-
-    for date in week_dates:
-        max_employees = 1
-        for shift_type in shift_types:
-            schedule_entry = schedule_data.get(date.strftime('%Y-%m-%d'), {}).get(shift_type.id)
-            employees = schedule_entry.employees.all() if schedule_entry else []
-            max_employees = max(max_employees, len(employees))
-
-        # Determine row formatting for the date cell
-        if date.weekday() == 5:  # Saturday
-            date_cell_format = saturday_date_format
-        elif date.weekday() == 6:  # Sunday
-            date_cell_format = sunday_date_format
-        else:
-            date_cell_format = date_format
-
-        # Merge the date cell dynamically
-        merge_to = current_row + max_employees - 1
-        worksheet.merge_range(current_row, 0, merge_to, 0, croatian_day(date) + ' ' + date.strftime('%d.%m.%Y.'), date_cell_format)
-
-        for col_idx, shift_type in enumerate(shift_types, start=1):
-            schedule_entry = schedule_data.get(date.strftime('%Y-%m-%d'), {}).get(shift_type.id)
-            employees = schedule_entry.employees.all() if schedule_entry else []
-            emp_blocks = [employees[i:i + 7] for i in range(0, len(employees), 7)]
-            for block_idx, block in enumerate(emp_blocks):
-                for emp_idx, employee in enumerate(block):
-                    cell_value = f"{employee.name} {employee.surname}"
-                    group_format = formats['group_text_formats'].get(employee.group)
-                    zero_width_space = "\u200B"
-                    if group_format:
-                        worksheet.write_rich_string(current_row + emp_idx, col_idx + block_idx, zero_width_space, group_format, cell_value, cell_format)
-                    else:
-                        worksheet.write(current_row + emp_idx, col_idx + block_idx, cell_value, cell_format)
-
-        current_row += max_employees or 1
-
-    workbook.close()
-    output.seek(0)
-    return output
-
+    return excel_file
 
 
 @login_required
@@ -147,7 +108,6 @@ def download_schedule(request):
     response = HttpResponse(content=excel_file.read(), content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
     response['Content-Disposition'] = 'attachment; filename="schedule.xlsx"'
     return response
-
 
 @login_required
 def download_sihterica(request):

@@ -1,10 +1,17 @@
-document.addEventListener('DOMContentLoaded', function() {
-    if (!Alpine.store('scheduleManager')) {
-        Alpine.store('scheduleManager', {
+document.addEventListener('alpine:init', () => {
+    console.log('Alpine initialized');
+    console.log('Attaching scheduleManager store');
+
+    Alpine.store('scheduleManager', {
         selectedRow: null,
         featureToggle: false,
+
         selectRow(index) {
-            if (!this.featureToggle) return;
+            console.log('Selecting row:', index);
+            if (!this.featureToggle) {
+                console.log('Feature toggle is off');
+                return;
+            }
 
             if (this.selectedRow === index) {
                 this.selectedRow = null;
@@ -13,77 +20,82 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             this.updateEmployeeLock();
         },
+
         updateEmployeeLock() {
-            // Remove lock from all employee blocks in the employee list
+            console.log('Updating employee lock status');
             document.querySelectorAll('#employees-list .employee-block').forEach(block => {
                 block.classList.remove('employee-locked');
                 block.setAttribute('draggable', 'true');
             });
 
-            // Return if feature toggle is off or no row is selected
             if (!this.featureToggle || this.selectedRow === null) return;
 
             const selectedRow = document.querySelectorAll('tbody tr')[this.selectedRow];
-            console.log('Selected row:', this.selectedRow, selectedRow); // Debug log
-
             let employeeCount = {};
 
-            // Count employees in the selected row
             selectedRow.querySelectorAll('.employee-block').forEach(block => {
                 const employeeId = block.getAttribute('data-employee-id');
-                console.log('Found employee in row:', employeeId); // Debug log
-                if (!employeeCount[employeeId]) {
-                    employeeCount[employeeId] = 0;
-                }
-                employeeCount[employeeId]++;
+                employeeCount[employeeId] = (employeeCount[employeeId] || 0) + 1;
             });
 
-            console.log('Employee count in selected row:', employeeCount); // Debug log
-
-            // Gray out employees in the employee list if they are present in the selected row
             document.querySelectorAll('#employees-list .employee-block').forEach(block => {
                 const employeeId = block.getAttribute('data-employee-id');
                 if (employeeCount[employeeId]) {
                     block.classList.add('employee-locked');
                     block.setAttribute('draggable', 'false');
-                    console.log('Locking employee:', employeeId); // Debug log
                 }
             });
         },
+
         setFeatureToggle(isChecked) {
+            console.log('Feature toggled:', isChecked);
             this.featureToggle = isChecked;
             this.updateEmployeeLock();
         }
     });
+});
 
-
-    document.getElementById('employee-lock-toggle').addEventListener('change', function(event) {
-        const isChecked = event.target.checked;
-        Alpine.store('scheduleManager').setFeatureToggle(isChecked);
-    });
-
-    initDragAndDrop();
-    fetchAndRenderSchedule();
-    populateMonthDropdown();
-    setupMonthNavigation();
-    attachRightClickEventListeners();
-    initializeFeatureToggle();
-}});
-
+// Function to initialize feature toggle checkbox listener
 function initializeFeatureToggle() {
     const toggle = document.getElementById('employee-lock-toggle');
-    toggle.addEventListener('change', function(event) {
-        const isChecked = event.target.checked;
-        Alpine.store('scheduleManager').setFeatureToggle(isChecked);
-    });
+
+    // Remove any previous event listener to avoid duplication
+    toggle.removeEventListener('change', toggleHandler);  // Ensure no duplicate listeners
+    toggle.addEventListener('change', toggleHandler);  // Attach a single listener
+}
+
+// Separate the event handler to make it reusable
+function toggleHandler(event) {
+    const isChecked = event.target.checked;
+    console.log('Toggling feature: ', isChecked);  // Log when toggle is clicked
+    Alpine.store('scheduleManager').setFeatureToggle(isChecked);
 }
 
 function reinitializeComponents() {
     initDragAndDrop();
     attachRightClickEventListeners();
+    
+    // Only initialize the feature toggle once (calling removeEventListener to ensure no duplicates)
     initializeFeatureToggle();
+    
     Alpine.store('scheduleManager').updateEmployeeLock();
 }
+
+// Call this once DOM is fully loaded
+document.addEventListener('DOMContentLoaded', function() {
+    initializeFeatureToggle();  // Initialize the feature toggle
+
+    // Fetch and render the schedule grid
+    fetchAndRenderSchedule();
+
+    // Initialize drag and drop functionality
+    initDragAndDrop();
+
+    // Setup month navigation and other event listeners
+    populateMonthDropdown();
+    setupMonthNavigation();
+    attachRightClickEventListeners();
+});
 
 let drake = null;
 
@@ -160,12 +172,9 @@ function initDragAndDrop() {
             clonedEl.setAttribute('data-group', group); // Ensure group is set on clone
             clonedEl.classList.add(`group-${group}`);
             target.appendChild(clonedEl);
-            Alpine.initTree(clonedEl);
-            drake.containers.push(clonedEl);
         } else {
             el.setAttribute('data-shift-type-id', shiftTypeId);
             target.appendChild(el);
-            Alpine.initTree(el);
         }
 
         Alpine.store('scheduleManager').updateEmployeeLock();
@@ -233,14 +242,13 @@ function updateSchedule(employeeId, shiftTypeId, date, action, originalDate, ori
 function fetchAndRenderSchedule() {
     let monthStart = document.getElementById('schedule-grid').getAttribute('data-month-start');
     console.log('MonthStart:', monthStart); // Confirming the month start
+
     let startDate = moment(monthStart).startOf('month');
     let endDate = moment(monthStart).endOf('month');
 
     const startFormat = startDate.format('YYYY-MM-DD');
     const endFormat = endDate.format('YYYY-MM-DD');
 
-
-    // Fetch HTML and update the DOM
     fetch(`/schedule/?month_start=${monthStart}`, {
         headers: {
             'X-Requested-With': 'XMLHttpRequest'  // Important for Django to recognize this as an AJAX request
@@ -249,6 +257,7 @@ function fetchAndRenderSchedule() {
     .then(response => response.text())  // Expect HTML in response
     .then(html => {
         document.getElementById('schedule-grid').innerHTML = html;
+
         // After HTML is updated, fetch JSON data
         return fetch(`/api/schedule/?month_start=${startFormat}&month_end=${endFormat}`);
     })
@@ -453,7 +462,10 @@ function getCookie(name) {
 function changeMonth(offset) {
     const monthStart = document.getElementById('schedule-grid').getAttribute('data-month-start');
     let currentDate = moment(monthStart).add(offset, 'months');
-    updateMonthStart(currentDate.format('YYYY-MM-DD'));
+
+    // Always use the first day of the new month when navigating
+    const firstDayOfMonth = currentDate.startOf('month').format('YYYY-MM-DD');
+    updateMonthStart(firstDayOfMonth);
 }
 
 function setupMonthNavigation() {
@@ -465,14 +477,16 @@ function setupMonthNavigation() {
     nextMonthButton.addEventListener('click', () => changeMonth(1));
     monthSelect.addEventListener('change', (event) => {
         updateMonthStart(event.target.value);
-        fetchAndRenderSchedule();
+        fetchAndRenderSchedule().then(() => {
+            updateMonthSelection(); // Make sure dropdown updates after schedule is rendered
+        });
     });
 }
 
 function updateMonthStart(newDate) {
     document.getElementById('schedule-grid').setAttribute('data-month-start', newDate);
-    document.getElementById('month-select').value = newDate;
-    fetchAndRenderSchedule();  // Update the schedule according to the new month
+    document.getElementById('month-select').value = newDate;  // Select the correct month in the dropdown
+    fetchAndRenderSchedule();  // Fetch and display the schedule for the entire week coverage
 }
 
 function populateMonthDropdown() {
@@ -502,13 +516,16 @@ function populateMonthDropdown() {
 
 function updateMonthSelection() {
     const currentMonthStart = document.getElementById('schedule-grid').getAttribute('data-month-start');
+    const monthSelect = document.getElementById('month-select');
+    
+    // Check if we have the month start set, else fallback to today's month
     if (!currentMonthStart) {
         const today = new Date();
         const currentMonthFormatted = `${today.getFullYear()}-${(today.getMonth() + 1).toString().padStart(2, '0')}-01`;
         document.getElementById('schedule-grid').setAttribute('data-month-start', currentMonthFormatted);
-        document.getElementById('month-select').value = currentMonthFormatted;
+        monthSelect.value = currentMonthFormatted;
     } else {
-        document.getElementById('month-select').value = currentMonthStart;
+        monthSelect.value = currentMonthStart;
     }
 }
 

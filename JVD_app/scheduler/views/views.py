@@ -81,7 +81,7 @@ def documents_view(request):
     documents = [
         {"name": "Šihterica", "type": "xlsx", "url": reverse('download_sihterica')}, 
         {"name": "Raspored", "type": "xlsx", "url": reverse('download_schedule')},
-        {"name": "Raspored PDF", "type": "pdf", "url": reverse('download_schedule_pdf')},
+        #{"name": "Raspored PDF", "type": "pdf", "url": reverse('download_schedule_pdf')},
         #{"name": "Šihterica PDF", "type": "pdf", "url": reverse('download_timesheet_pdf')},
     ]
 
@@ -134,6 +134,7 @@ def get_last_day_of_week(date):
     day_idx = date.weekday()
     return date + timedelta(days=(6 - day_idx))
 
+@login_required
 def schedule_view(request):
     print("All query params:", request.GET)
     month_start_str = request.GET.get('month_start')
@@ -145,15 +146,21 @@ def schedule_view(request):
         today = date.today()
         month_start = date(today.year, today.month, 1)
 
-    week_start_date = get_first_day_of_week(month_start)
+    # Get the first and last day of the month
+    first_day_of_month = month_start.replace(day=1)
     last_day_of_month = month_start.replace(day=calendar.monthrange(month_start.year, month_start.month)[1])
-    week_end_date = get_last_day_of_week(last_day_of_month)
 
+    # Extend to cover the entire week of both the first and last day
+    week_start_date = get_first_day_of_week(first_day_of_month)  # Monday of the first week
+    week_end_date = get_last_day_of_week(last_day_of_month)  # Sunday of the last week
+
+    # Create a list of dates from the first Monday to the last Sunday
     num_days = (week_end_date - week_start_date).days + 1
     month_dates = [week_start_date + timedelta(days=i) for i in range(num_days)]
 
     shift_types = ShiftType.objects.all()
 
+    # Prepare schedule data
     schedule_data = {}
     for day in month_dates:
         day_key = day.strftime('%Y-%m-%d')
@@ -166,7 +173,7 @@ def schedule_view(request):
                 schedule_data[day_key][shift_type.id] = None
 
     context = {
-        'month_dates': month_dates,
+        'month_dates': month_dates,  # Dates include entire weeks covering the month
         'shift_types': shift_types,
         'schedule_data': schedule_data,
         'employees': Employee.objects.all(),
@@ -177,6 +184,7 @@ def schedule_view(request):
         return render(request, 'scheduler/scheduler_grid_inner.html', context)
     else:
         return render(request, 'scheduler/schedule_grid.html', context)
+
 
 @require_http_methods(["GET"])
 def api_schedule_data(request):
@@ -415,40 +423,41 @@ def update_schedule(request):
         employee = get_object_or_404(Employee, pk=data['employeeId'])
         shift_type = get_object_or_404(ShiftType, pk=data['shiftTypeId'])
 
-        # Calculate shift hours for the new schedule
-        shift_hours = calculate_shift_hours(employee, shift_type, date)
+        # Start an atomic transaction
+        with transaction.atomic():
+            # Calculate shift hours for the new schedule
+            shift_hours = calculate_shift_hours(employee, shift_type, date)
 
-        # Handling the existing entry for the date and employee
-        work_day, created = WorkDay.objects.get_or_create(
-            employee=employee, date=date, shift_type=shift_type
-        )
-        if shift_type.isNightShift:
-            work_day.night_hours += shift_hours['night']
-            work_day.day_hours += shift_hours['day']
-            work_day.on_call_hours += shift_hours['on_call']
-            work_day.holiday_hours = shift_hours['holiday']
-            work_day.sick_leave_hours = shift_hours['sick_leave']
-            work_day.saturday_hours += shift_hours['saturday']
-            work_day.sunday_hours += shift_hours['sunday']
-        else:
-            work_day.day_hours = shift_hours['day']  # Update rather than increment
-            work_day.night_hours = shift_hours['night']
-            work_day.holiday_hours = shift_hours['holiday']
-            work_day.sick_leave_hours = shift_hours['sick_leave']
-            work_day.saturday_hours = shift_hours['saturday']
-            work_day.sunday_hours = shift_hours['sunday']
-            work_day.on_call_hours += shift_hours['on_call']
+            # Handling the existing entry for the date and employee
+            work_day, created = WorkDay.objects.get_or_create(
+                employee=employee, date=date, shift_type=shift_type
+            )
+            if shift_type.isNightShift:
+                work_day.night_hours += shift_hours['night']
+                work_day.day_hours += shift_hours['day']
+                work_day.on_call_hours += shift_hours['on_call']
+                work_day.holiday_hours = shift_hours['holiday']
+                work_day.sick_leave_hours = shift_hours['sick_leave']
+                work_day.saturday_hours += shift_hours['saturday']
+                work_day.sunday_hours += shift_hours['sunday']
+            else:
+                work_day.day_hours = shift_hours['day']  # Update rather than increment
+                work_day.night_hours = shift_hours['night']
+                work_day.holiday_hours = shift_hours['holiday']
+                work_day.sick_leave_hours = shift_hours['sick_leave']
+                work_day.saturday_hours = shift_hours['saturday']
+                work_day.sunday_hours = shift_hours['sunday']
+                work_day.on_call_hours += shift_hours['on_call']
 
-        work_day.save()
+            work_day.save()
 
-        # Move or add action
-        if data['action'] == 'move':
-            original_date = datetime.strptime(data['originalDate'], '%Y-%m-%d').date()
-            original_shift_type = get_object_or_404(ShiftType, pk=data['originalShiftTypeId'])
-            next_day = original_date + timedelta(days=1)
-            #Handling schedule entries
-            with transaction.atomic():
-                # Handle moving the employee to a new shift
+            # Process the action ('move' or 'add')
+            if data['action'] == 'move':
+                original_date = datetime.strptime(data['originalDate'], '%Y-%m-%d').date()
+                original_shift_type = get_object_or_404(ShiftType, pk=data['originalShiftTypeId'])
+                next_day = original_date + timedelta(days=1)
+
+                # Handling schedule entries
                 original_entry = ScheduleEntry.objects.filter(date=original_date, shift_type=original_shift_type).first()
                 if original_entry:
                     original_entry.employees.remove(employee)
@@ -460,45 +469,44 @@ def update_schedule(request):
                     date=date, shift_type=shift_type
                 )
                 schedule_entry.employees.add(employee)
-            #Handling workday entries
-            with transaction.atomic():
+
+                # Handling workday entries for night shifts
                 original_workday = WorkDay.objects.filter(date=original_date, shift_type=original_shift_type, employee=employee).first()
-                print("Original workday",original_workday)
-                #Checking if original workday exists
                 if original_workday:
-                    #Checking if original workday is a night shift
+                    # Handle specific night shift rules
                     if original_shift_type.isNightShift:
                         next_workday = WorkDay.objects.filter(date=next_day, shift_type=original_shift_type, employee=employee).first()
                         if original_workday.day_hours == 3.0 and original_workday.night_hours == 2.0 and next_workday.day_hours == 4.0 and next_workday.night_hours == 8.0:
-                            print("This is the first 2nd shift object being moved",original_workday)
                             original_workday.delete()
                             next_workday.day_hours = 3
                             next_workday.night_hours = 2
                             next_workday.save()
                         elif original_workday.day_hours > 3.0 and original_workday.night_hours > 6.0 and next_workday.day_hours == 1.0 and next_workday.night_hours == 6.0:
-                            print("This is the second 2nd shift object being moved",original_workday)
                             next_workday.delete()
                             original_workday.day_hours = 1
                             original_workday.night_hours = 6
                             original_workday.on_call_hours = 0
                             original_workday.save()
                         else:
-                            print("Next workday: ",next_workday)
                             original_workday.delete()
-                            next_workday.delete()
+                            if next_workday:
+                                next_workday.delete()
                     else:
                         original_workday.delete()
 
-        elif data['action'] == 'add':
-            with transaction.atomic():
+            elif data['action'] == 'add':
                 schedule_entry, created = ScheduleEntry.objects.get_or_create(
                     date=date, shift_type=shift_type
                 )
                 schedule_entry.employees.add(employee)
 
+            # Logging success
+            logger.info(f"Schedule updated successfully for employee {employee.id} on {date}")
+
         return JsonResponse({'status': 'success', 'message': 'Schedule updated', 'created': created}, status=200)
 
     except Exception as e:
         logger.error(f"Exception in update_schedule: {str(e)}")
+        # Any exception will trigger a rollback of the transaction
         return JsonResponse({'error': 'Server error', 'details': str(e)}, status=500)
     

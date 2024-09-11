@@ -1211,10 +1211,6 @@ video {
   padding: 2rem;
 }
 
-.p-3 {
-  padding: 0.75rem;
-}
-
 .px-2 {
   padding-left: 0.5rem;
   padding-right: 0.5rem;
@@ -1622,25 +1618,16 @@ video {
   transition-delay: 0s;
 }
 
-/* Week and day coloring */
-
-.week-divider {
-  border-top: 2px solid #ccc;
-}
-
 .employee-locked {
-  background-color: #d1d5db;
-  /* Custom gray color */
   cursor: not-allowed;
+  --tw-bg-opacity: 1;
+  background-color: rgb(156 163 175 / var(--tw-bg-opacity));
+  --tw-text-opacity: 1;
+  color: rgb(255 255 255 / var(--tw-text-opacity));
 }
 
 .checked\:border-transparent:checked {
   border-color: transparent;
-}
-
-.checked\:bg-blue-600:checked {
-  --tw-bg-opacity: 1;
-  background-color: rgb(37 99 235 / var(--tw-bg-opacity));
 }
 
 .checked\:bg-emerald-600:checked {
@@ -1716,6 +1703,11 @@ video {
 .hover\:text-red-400:hover {
   --tw-text-opacity: 1;
   color: rgb(248 113 113 / var(--tw-text-opacity));
+}
+
+.hover\:text-red-700:hover {
+  --tw-text-opacity: 1;
+  color: rgb(185 28 28 / var(--tw-text-opacity));
 }
 
 .hover\:shadow-lg:hover {
