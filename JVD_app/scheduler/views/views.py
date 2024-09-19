@@ -172,11 +172,14 @@ def schedule_view(request):
             else:
                 schedule_data[day_key][shift_type.id] = None
 
+    # Fetch employees and sort them by group and role_number
+    employees = Employee.objects.all().order_by('group', 'role_number')
+
     context = {
         'month_dates': month_dates,  # Dates include entire weeks covering the month
         'shift_types': shift_types,
         'schedule_data': schedule_data,
-        'employees': Employee.objects.all(),
+        'employees': employees,  # Pass sorted employees to the template
         'schedule_view': True,
     }
 
@@ -212,8 +215,9 @@ def api_schedule_data(request):
         schedule_list.append({
             "date": entry.date.strftime('%Y-%m-%d'),
             "shift_type_id": entry.shift_type.id,
-            "employees": list(entry.employees.values('id', 'name', 'surname', 'group'))
+            "employees": list(entry.employees.values('id', 'name', 'surname', 'group', 'role_number'))  # Include role_number here
         })
+
 
     return JsonResponse(schedule_list, safe=False)
 

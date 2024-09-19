@@ -6,6 +6,7 @@ class Employee(models.Model):
     name = models.CharField(max_length=100)
     surname = models.CharField(max_length=100)
     role = models.CharField(max_length=100)
+    role_number = models.IntegerField(null=True, blank=True)
     group = models.CharField(max_length=100)
     
     def __str__(self):
@@ -121,6 +122,7 @@ class WorkDay(models.Model):
     overtime_free_day = models.FloatField(default=0, blank=True, null=True)
     overtime_free_day_service = models.FloatField(default=0, blank=True, null=True)
     overtime_excess_fond = models.FloatField(default=0, blank=True, null=True)
+    note = models.CharField(max_length=255, blank=True, null=True)  # New note field
 
     def __str__(self):
         return f"{self.employee.name} {self.employee.surname} - {self.date}"

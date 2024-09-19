@@ -14,12 +14,12 @@
     <tbody x-data>
       {% for day in month_dates %}
           {% with weekday=day|date:"w" %}
-          <tr :class="{'bg-blue-200': Alpine.store('scheduleManager').featureToggle && Alpine.store('scheduleManager').selectedRow === {{ forloop.counter0 }}}"
-          @click="Alpine.store('scheduleManager').selectRow({{ forloop.counter0 }})">
-              <td class="px-2 py-1 border text-center max-w-24 date-header">
-                  <div class="font-bold text-center">{{ day|date:"D"|translate_days }}</div>
-                  <div class="mt-1 text-center">{{ day|date:"d.m.Y" }}</div>
-              </td>
+          <tr :class="{'bg-blue-200': Alpine.store('scheduleManager').featureToggle && Alpine.store('scheduleManager').selectedRow === {{ forloop.counter0 }}}">
+            <!-- Attach the click event only on the date column -->
+            <td class="px-2 py-1 border text-center max-w-24 date-header" @click="Alpine.store('scheduleManager').selectRow({{ forloop.counter0 }})">
+                <div class="font-bold text-center">{{ day|date:"D"|translate_days }}</div>
+                <div class="mt-1 text-center">{{ day|date:"d.m.Y" }}</div>
+            </td>
               {% for shift_type in shift_types %}
               <td class="items-center justify-center px-2 py-1 border min-w-[120px] dropzone bg-white rounded border-gray-400 min-h-[40px]"
                   data-shift-type-id="{{ shift_type.id }}" data-date="{{ day|date:'Y-m-d' }}">
@@ -28,11 +28,11 @@
                   {% if schedule_entry %}
                   {% for employee in schedule_entry.employees.all %}
                   <div class="employee-block group-{{ employee.group }}" 
-                      id="employee-block-{{ employee.id }}-{{ day|date:'Y-m-d' }}-{{ shift_type.id }}" 
-                      data-employee-id="{{ employee.id }}" 
-                      data-group="{{ employee.group }}" 
-                      data-shift-type-id="{{ shift_type.id }}">
-                      <span class="employee-name">{{ employee.name }} {{ employee.surname }}</span>
+                    id="employee-block-{{ employee.id }}-{{ day|date:'Y-m-d' }}-{{ shift_type.id }}" 
+                    data-employee-id="{{ employee.id }}" 
+                    data-group="{{ employee.group }}" 
+                    data-shift-type-id="{{ shift_type.id }}">
+                    <span class="employee-name">({{ employee.role_number }}) {{ employee.surname }} {{ employee.name|slice:":1" }}.</span> <!-- Single span for role and name -->
                   </div>
                   {% endfor %}
                   {% endif %}
