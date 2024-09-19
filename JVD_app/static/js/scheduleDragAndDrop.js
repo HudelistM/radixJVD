@@ -23,22 +23,27 @@ document.addEventListener('alpine:init', () => {
 
         updateEmployeeLock() {
             console.log('Updating employee lock status');
-            document.querySelectorAll('#employees-list .employee-block').forEach(block => {
+            
+            // Unlock all employee blocks in both the list and schedule
+            document.querySelectorAll('.employee-block').forEach(block => {
                 block.classList.remove('employee-locked');
                 block.setAttribute('draggable', 'true');
             });
-
+        
             if (!this.featureToggle || this.selectedRow === null) return;
-
+        
+            // Get selected row (schedule table row)
             const selectedRow = document.querySelectorAll('tbody tr')[this.selectedRow];
             let employeeCount = {};
-
+        
+            // Mark employees that are already assigned in the selected row
             selectedRow.querySelectorAll('.employee-block').forEach(block => {
                 const employeeId = block.getAttribute('data-employee-id');
                 employeeCount[employeeId] = (employeeCount[employeeId] || 0) + 1;
             });
-
-            document.querySelectorAll('#employees-list .employee-block').forEach(block => {
+        
+            // Lock employees both in the list and in the schedule table
+            document.querySelectorAll('.employee-block').forEach(block => {
                 const employeeId = block.getAttribute('data-employee-id');
                 if (employeeCount[employeeId]) {
                     block.classList.add('employee-locked');
@@ -46,6 +51,7 @@ document.addEventListener('alpine:init', () => {
                 }
             });
         },
+        
 
         setFeatureToggle(isChecked) {
             console.log('Feature toggled:', isChecked);
@@ -127,7 +133,8 @@ function initDragAndDrop() {
         revertOnSpill: true,
         mirrorContainer: document.body,
         moves: (el) => {
-            return el.classList.contains('employee-block');
+            // Prevent dragging locked employees
+            return !el.classList.contains('employee-locked') && el.classList.contains('employee-block');
         }
     });
 
@@ -298,9 +305,10 @@ function createEmployeeBlock(employee, date, shiftTypeId) {
     div.setAttribute('data-shift-type-id', shiftTypeId);
     div.setAttribute('data-date', date);
 
+    // Single span for role number and name
     const nameSpan = document.createElement('span');
     nameSpan.className = 'employee-name';
-    nameSpan.textContent = `${employee.surname} ${employee.name.charAt(0)}. (${employee.group})`;
+    nameSpan.textContent = `(${employee.role_number}) ${employee.surname} ${employee.name.charAt(0)}.`; // Concatenated role_number, surname, and name
     div.appendChild(nameSpan);
 
     return div;

@@ -37,9 +37,9 @@
         </div>
         <div class="grid grid-cols-3 gap-1 group-container">
           {% for employee in group.list %}
-            <div class="employee-block group-{{ employee.group }}" data-employee-id="{{ employee.id }}" data-group="{{ employee.group }}">
-              <span class="employee-name">{{ employee.surname }} {{ employee.name|slice:":1" }}. ({{ employee.group }})</span>
-            </div>
+          <div class="employee-block group-{{ employee.group }}" data-employee-id="{{ employee.id }}" data-group="{{ employee.group }}">
+            <span class="employee-name">({{ employee.role_number }}) {{ employee.surname }} {{ employee.name|slice:":1" }}.</span> <!-- Single span for both role and name -->
+          </div>
           {% endfor %}
         </div>
       </div>

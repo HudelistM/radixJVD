@@ -57,6 +57,74 @@ def fill_dates_in_template(wb, start_date, month_start_points):
 
             current_day += timedelta(days=1)  # Move to the next day
 
+def fill_employees_in_template(wb, schedule_data, week_dates):
+    sheet = wb.active
+
+    # Define column mappings to shift types
+    shift_columns = {
+        '1.smjena': 'C',
+        '2.smjena': 'D',
+        'Priprema od 19': 'E',
+        'JANAF 1.smjena': 'F',
+        'JANAF 2.smjena': 'F',
+        'Slobodan Dan 1': 'G',
+        'Slobodan Dan 2': 'H',
+        'Godišnji odmor': 'I',
+        'Bolovanje': 'J',
+        '1.smjena INA': 'K',
+        '2.smjena INA': 'L',
+    }
+
+    # Define row start positions based on day number (1st day starts at row 7, 2nd at 14, etc.)
+    row_starts = {
+        0: 7,  # Day 1 (Monday) starts at row 7
+        1: 14, # Day 2 (Tuesday) starts at row 14
+        2: 21, # Day 3 (Wednesday) starts at row 21
+        3: 28, # Day 4 (Thursday) starts at row 28
+        4: 35, # Day 5 (Friday) starts at row 35
+        5: 42, # Day 6 (Saturday) starts at row 42
+        6: 49  # Day 7 (Sunday) starts at row 49
+    }
+
+    for day_idx, day in enumerate(week_dates):
+        day_str = day.strftime('%Y-%m-%d')
+        if day_str in schedule_data:
+            for shift_type_id, entry in schedule_data[day_str].items():
+                if entry and entry.employees:
+                    shift_type = ShiftType.objects.get(id=shift_type_id)
+                    shift_column = shift_columns.get(shift_type.name, None)
+
+                    if not shift_column:
+                        continue  # Skip if shift column isn't defined
+
+                    # Special handling for JANAF and Slobodan Dan
+                    if shift_type.name in ['JANAF 1.smjena', 'JANAF 2.smjena']:
+                        if shift_type.name == 'JANAF 1.smjena':
+                            # JANAF 1.smjena: first shift rows (6 and 7) or (13 and 14)
+                            rows = [6, 7] if day_idx % 2 == 0 else [13, 14]
+                        else:
+                            # JANAF 2.smjena: second shift rows (9, 10, 11) or (16, 17, 18)
+                            rows = [9, 10, 11] if day_idx % 2 == 0 else [16, 17, 18]
+
+                        for idx, employee in enumerate(entry.employees.all()):
+                            if idx < len(rows):  # Fill only if within the row limits
+                                sheet[f"{shift_column}{rows[idx]}"] = f"{employee.surname} {employee.name[0]}."
+
+                    elif shift_type.name in ['Slobodan Dan 1', 'Slobodan Dan 2']:
+                        # Slobodan Dan: fill from row 5 to row 11
+                        rows = list(range(5, 12))
+                        for idx, employee in enumerate(entry.employees.all()):
+                            if idx < len(rows):
+                                sheet[f"{shift_column}{rows[idx]}"] = f"{employee.surname} {employee.name[0]}."
+
+                    else:
+                        # General shifts (1.smjena, 2.smjena, etc.): fill normally starting from row 7, 14, etc.
+                        row_start = row_starts.get(day_idx, 7)
+                        for idx, employee in enumerate(entry.employees.all()):
+                            sheet[f"{shift_column}{row_start + idx}"] = f"{employee.surname} {employee.name[0]}."
+
+
+
 def create_schedule_excel(week_dates, shift_types, schedule_data, author_name):
     # Use Django staticfiles finders to locate the Excel template
     template_path = finders.find('template/RASPORED_template.xlsx')
@@ -71,6 +139,9 @@ def create_schedule_excel(week_dates, shift_types, schedule_data, author_name):
     month_start_points = [7, 60, 113, 167, 220, 273]  # Starting rows for each mini table
     fill_dates_in_template(wb, week_dates[0], month_start_points)
 
+    # Fill employees in the template
+    fill_employees_in_template(wb, schedule_data, week_dates)
+
     # Save the modified workbook to an in-memory stream (BytesIO)
     from io import BytesIO
     excel_file = BytesIO()
@@ -78,6 +149,8 @@ def create_schedule_excel(week_dates, shift_types, schedule_data, author_name):
     excel_file.seek(0)
 
     return excel_file
+
+
 
 
 @login_required
