@@ -292,6 +292,13 @@ def download_schedule(request):
 
 @login_required
 def download_sihterica(request):
+    return download_sihterica_with_filters(request, exclude_group='6')
+
+@login_required
+def download_sihterica_ina(request):
+    return download_sihterica_with_filters(request, group_filter='6')
+
+def download_sihterica_with_filters(request, group_filter=None, exclude_group=None):
     month_str = request.GET.get('month')
     if month_str:
         start_date = datetime.strptime(month_str, '%Y-%m-%d').date()
@@ -309,8 +316,16 @@ def download_sihterica(request):
         role_number_int=Coalesce('role_number', Value(0))
     ).order_by('group_number', 'role_number_int')
 
-    employees = list(group1_employees) + list(other_employees)
+    # Apply group filters
+    if group_filter:
+        group1_employees = group1_employees.filter(group=group_filter)
+        other_employees = other_employees.filter(group=group_filter)
+    if exclude_group:
+        group1_employees = group1_employees.exclude(group=exclude_group)
+        other_employees = other_employees.exclude(group=exclude_group)
 
+    employees = list(group1_employees) + list(other_employees)
+    
     output = BytesIO()
     workbook = xlsxwriter.Workbook(output, {'in_memory': True})
     
@@ -325,7 +340,7 @@ def download_sihterica(request):
     
     # Process employee data and fill timesheet
     fill_timesheet(timesheet_worksheet, employees, current_year, current_month, days_in_month, timesheet_formats)
-
+    
     # Generate aggregate tables in separate sheets
     overview_worksheet = workbook.add_worksheet('Pregled svih sati')
     generate_total_overview(overview_worksheet, employees, current_year, current_month, formats)
@@ -345,8 +360,16 @@ def download_sihterica(request):
     workbook.close()
     output.seek(0)
 
+    # Adjust the filename based on the group filter
+    if exclude_group == '6':
+        filename_suffix = ''
+    elif group_filter == '6':
+        filename_suffix = 'INA '
+    else:
+        filename_suffix = ''
+
     response = HttpResponse(content=output.read(), content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-    response['Content-Disposition'] = f'attachment; filename="sihterica_{current_month}_{current_year}.xlsx"'
+    response['Content-Disposition'] = f'attachment; filename="{filename_suffix}sihterica_{current_month}_{current_year}.xlsx"'
     return response
 
 def setup_formats(workbook):

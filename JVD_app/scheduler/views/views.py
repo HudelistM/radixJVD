@@ -80,6 +80,7 @@ def documents_view(request):
 
     documents = [
         {"name": "Šihterica", "type": "xlsx", "url": reverse('download_sihterica')}, 
+        {"name": "Šihterica INA", "type": "xlsx", "url": reverse('download_sihterica_ina')},
         {"name": "Raspored", "type": "xlsx", "url": reverse('download_schedule')},
         #{"name": "Raspored PDF", "type": "pdf", "url": reverse('download_schedule_pdf')},
         #{"name": "Šihterica PDF", "type": "pdf", "url": reverse('download_timesheet_pdf')},
