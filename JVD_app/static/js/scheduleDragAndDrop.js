@@ -342,7 +342,7 @@ function openOvertimeModal(employeeId, date, shiftTypeId) {
             // Show existing inputs in all cases
             document.getElementById('existing-inputs').classList.remove('hidden');
 
-            if (shiftTypeData.category === '1.smjena') {
+            if (shiftTypeData.category === '1.smjena' || shiftTypeData.category === 'janaf 1.smjena' || shiftTypeData.category === 'ina 1.smjena') {
                 // Show the dual range slider for first shift
                 document.getElementById('dual-range-slider-container').classList.remove('hidden');
                 document.getElementById('modal-title').textContent = 'Uredi radno vrijeme';
