@@ -1,3 +1,5 @@
+let rangeMin, rangeMax, sliderRange, startTimeDisplay, endTimeDisplay;
+
 document.addEventListener('alpine:init', () => {
     console.log('Alpine initialized');
     console.log('Attaching scheduleManager store');
@@ -101,6 +103,8 @@ document.addEventListener('DOMContentLoaded', function() {
     populateMonthDropdown();
     setupMonthNavigation();
     attachRightClickEventListeners();
+
+
 });
 
 let drake = null;
@@ -315,7 +319,6 @@ function createEmployeeBlock(employee, date, shiftTypeId) {
 }
 
 
-
 function openOvertimeModal(employeeId, date, shiftTypeId) {
     console.log(`Opening modal for Employee ID: ${employeeId}, Date: ${date}, Shift Type ID: ${shiftTypeId}`);
 
@@ -328,25 +331,93 @@ function openOvertimeModal(employeeId, date, shiftTypeId) {
     dateInput.value = date;
     shiftTypeInput.value = shiftTypeId;
 
-    fetch(`/get_workday_data/?employee_id=${employeeId}&date=${date}&shift_type_id=${shiftTypeId}`)
-    .then(response => response.json())
-    .then(data => {
-        if (data.status === 'success') {
-            document.getElementById('overtime-hours').value = data.data.overtime_hours || 0;
-            document.getElementById('overtime-hours-service').value = data.data.overtime_service || 0;
-            document.getElementById('day-hours').value = data.data.day_hours || 0;
-            document.getElementById('night-hours').value = data.data.night_hours || 0;
-        } else {
-            console.error('Failed to fetch workday data:', data);
-            throw new Error('Failed to fetch data');
-        }
-        modal.classList.remove('hidden');
-    })
-    .catch(error => {
-        console.error('Error fetching workday data:', error);
-        modal.classList.remove('hidden');
-    });
+    // Make the modal visible before accessing its content
+    modal.classList.remove('hidden');
+
+
+    // Fetch shift type details to determine if it's the first shift
+    fetch(`/get_shift_type_details/?shift_type_id=${shiftTypeId}`)
+        .then(response => response.json())
+        .then(shiftTypeData => {
+            // Show existing inputs in all cases
+            document.getElementById('existing-inputs').classList.remove('hidden');
+
+            if (shiftTypeData.category === '1.smjena') {
+                // Show the dual range slider for first shift
+                document.getElementById('dual-range-slider-container').classList.remove('hidden');
+                document.getElementById('modal-title').textContent = 'Uredi radno vrijeme';
+
+                // Initialize variables after the modal is visible
+                rangeMin = document.getElementById('range-min');
+                rangeMax = document.getElementById('range-max');
+                sliderRange = document.getElementById('slider-range');
+                startTimeDisplay = document.getElementById('start-time-display');
+                endTimeDisplay = document.getElementById('end-time-display');
+
+                // Initialize tooltips
+                const tooltipMin = document.querySelector('.tooltip-min');
+                const tooltipMax = document.querySelector('.tooltip-max');
+
+                tooltipMin.__x = { $data: { show: false, hideTimeout: null } };
+                tooltipMax.__x = { $data: { show: false, hideTimeout: null } };
+
+                
+
+                if (!rangeMin.hasListener) {
+                    rangeMin.addEventListener('input', updateSliderRange);
+                    rangeMin.hasListener = true;
+                  }
+                  
+                  if (!rangeMax.hasListener) {
+                    rangeMax.addEventListener('input', updateSliderRange);
+                    rangeMax.hasListener = true;
+                  }
+
+
+                // Fetch existing WorkDay data
+                fetchWorkdayDataFirstShift(employeeId, date, shiftTypeId);
+            } else {
+                // Hide the dual range slider for other shifts
+                document.getElementById('dual-range-slider-container').classList.add('hidden');
+                document.getElementById('modal-title').textContent = 'Unesite prekovremene sate';
+
+                // Fetch and populate data for other shifts
+                fetchWorkdayData(employeeId, date, shiftTypeId);
+            }
+        })
+        .catch(error => {
+            console.error('Error fetching shift type details:', error);
+        });
 }
+
+
+// Function to fetch and populate workday data for other shifts
+function fetchWorkdayData(employeeId, date, shiftTypeId) {
+    fetch(`/get_workday_data/?employee_id=${employeeId}&date=${date}&shift_type_id=${shiftTypeId}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                document.getElementById('overtime-hours').value = data.data.overtime_hours || 0;
+                document.getElementById('overtime-hours-service').value = data.data.overtime_service || 0;
+                document.getElementById('day-hours').value = data.data.day_hours || 0;
+                document.getElementById('night-hours').value = data.data.night_hours || 0;
+            } else {
+                console.error('Failed to fetch workday data:', data);
+            }
+        })
+        .catch(error => {
+            console.error('Error fetching workday data:', error);
+        });
+}
+
+
+// Helper function to format time in HH:MM
+function formatTime(decimalTime) {
+    let hours = Math.floor(decimalTime);
+    let minutes = Math.round((decimalTime - hours) * 60);
+    return `${hours.toString().padStart(2, '0')}:${minutes === 0 ? '00' : minutes.toString().padStart(2, '0')}`;
+  }
+  
 
 function closeOvertimeDialog() {
     console.log('Closing modal');
@@ -357,24 +428,40 @@ function submitOvertime() {
     const employeeId = document.getElementById('employee-id').value;
     const date = document.getElementById('work-date').value;
     const shiftTypeId = document.getElementById('shift-type-id').value;
-    const overtimeHours = document.getElementById('overtime-hours').value;
-    const overtimeHoursService = document.getElementById('overtime-hours-service').value;
-    const dayHours = document.getElementById('day-hours').value;
-    const nightHours = document.getElementById('night-hours').value;
+
+    // Determine if the dual range slider is visible
+    const isFirstShift = !document.getElementById('dual-range-slider-container').classList.contains('hidden');
 
     let requestData = { employee_id: employeeId, date: date, shift_type_id: shiftTypeId };
-    
-    if (overtimeHours !== '') {
-        requestData.overtime_hours = parseFloat(overtimeHours);
-    }
-    if (overtimeHoursService !== '') {
-        requestData.overtime_service = parseFloat(overtimeHoursService);
-    }
-    if (dayHours !== '') {
-        requestData.day_hours = parseFloat(dayHours);
-    }
-    if (nightHours !== '') {
-        requestData.night_hours = parseFloat(nightHours);
+
+    if (isFirstShift) {
+        // Get values from the dual range slider
+        const startTime = parseFloat(rangeMin.value);
+        const endTime = parseFloat(rangeMax.value);
+        const totalHours = endTime - startTime;
+
+        requestData.day_hours = totalHours;
+        requestData.note = `${formatTime(startTime)}-${formatTime(endTime)}`;
+
+    } else {
+        // Existing code for other shifts
+        const overtimeHours = document.getElementById('overtime-hours').value;
+        const overtimeHoursService = document.getElementById('overtime-hours-service').value;
+        const dayHours = document.getElementById('day-hours').value;
+        const nightHours = document.getElementById('night-hours').value;
+
+        if (overtimeHours !== '') {
+            requestData.overtime_hours = parseFloat(overtimeHours);
+        }
+        if (overtimeHoursService !== '') {
+            requestData.overtime_service = parseFloat(overtimeHoursService);
+        }
+        if (dayHours !== '') {
+            requestData.day_hours = parseFloat(dayHours);
+        }
+        if (nightHours !== '') {
+            requestData.night_hours = parseFloat(nightHours);
+        }
     }
 
     console.log("Submitting overtime with data:", requestData);
@@ -398,6 +485,126 @@ function submitOvertime() {
     .catch(error => {
         console.error('Error:', error);
     });
+}
+
+
+function updateSliderRange() {
+    let min = parseFloat(rangeMin.value);
+    let max = parseFloat(rangeMax.value);
+  
+    // Swap values if min > max
+    if (min > max) {
+      [min, max] = [max, min];
+      rangeMin.value = min;
+      rangeMax.value = max;
+    }
+  
+    // Calculate percentages for positioning
+    const rangeTotal = rangeMin.max - rangeMin.min;
+    const minPercent = ((min - rangeMin.min) / rangeTotal) * 100;
+    const maxPercent = ((max - rangeMin.min) / rangeTotal) * 100;
+  
+    // Update the slider range position and width
+    sliderRange.style.left = minPercent + '%';
+    sliderRange.style.width = (maxPercent - minPercent) + '%';
+  
+    // Update displayed times
+    startTimeDisplay.textContent = formatTime(min);
+    endTimeDisplay.textContent = formatTime(max);
+  
+    // Update tooltip positions
+    const tooltipMin = document.querySelector('.tooltip-min');
+    const tooltipMax = document.querySelector('.tooltip-max');
+  
+    tooltipMin.style.left = `calc(${minPercent}% - 10px)`; // Adjust for thumb width
+    tooltipMax.style.left = `calc(${maxPercent}% - 10px)`;
+  
+    // Show tooltips when moving
+    tooltipMin.__x.$data.show = true;
+    tooltipMax.__x.$data.show = true;
+  
+    // Hide tooltips after a delay
+    clearTimeout(tooltipMin.__x.$data.hideTimeout);
+    clearTimeout(tooltipMax.__x.$data.hideTimeout);
+  
+    tooltipMin.__x.$data.hideTimeout = setTimeout(() => {
+      tooltipMin.__x.$data.show = false;
+    }, 1000);
+  
+    tooltipMax.__x.$data.hideTimeout = setTimeout(() => {
+      tooltipMax.__x.$data.show = false;
+    }, 1000);
+  }
+  
+
+function attachRightClickEventListeners() {
+    document.querySelectorAll('.employee-block').forEach(block => {
+        block.removeEventListener('contextmenu', handleContextMenu); // Remove existing listeners to avoid duplication
+        block.addEventListener('contextmenu', handleContextMenu); // Attach the new listener
+    });
+}
+
+function handleContextMenu(event) {
+    event.preventDefault();
+    const employeeId = this.getAttribute('data-employee-id');
+    const date = this.getAttribute('data-date');
+    const shiftTypeId = this.getAttribute('data-shift-type-id');
+    openOvertimeModal(employeeId, date, shiftTypeId);
+}
+
+function fetchWorkdayDataFirstShift(employeeId, date, shiftTypeId) {
+    fetch(`/get_workday_data/?employee_id=${employeeId}&date=${date}&shift_type_id=${shiftTypeId}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                // Set initial values for the sliders based on note or default
+                let note = data.data.note || '';
+                let day_hours = data.data.day_hours || 12; // Default to 12 hours
+                let startTime = 7;
+                let endTime = 19;
+                if (note) {
+                    // Parse note to get start and end times
+                    const timeRange = note.split('-');
+                    if (timeRange.length === 2) {
+                        startTime = parseTimeToDecimal(timeRange[0]);
+                        endTime = parseTimeToDecimal(timeRange[1]);
+                    }
+                }
+                rangeMin.value = startTime;
+                rangeMax.value = endTime;
+                updateSliderRange();
+
+                // Populate other existing inputs
+                document.getElementById('overtime-hours').value = data.data.overtime_hours || 0;
+                document.getElementById('overtime-hours-service').value = data.data.overtime_service || 0;
+                document.getElementById('day-hours').value = data.data.day_hours || day_hours;
+                document.getElementById('night-hours').value = data.data.night_hours || 0;
+            } else {
+                console.error('Failed to fetch workday data:', data);
+                // Set defaults
+                rangeMin.value = 7;
+                rangeMax.value = 19;
+                updateSliderRange();
+                // Set default values for other inputs
+                document.getElementById('overtime-hours').value = 0;
+                document.getElementById('overtime-hours-service').value = 0;
+                document.getElementById('day-hours').value = 12;
+                document.getElementById('night-hours').value = 0;
+            }
+        })
+        .catch(error => {
+            console.error('Error fetching workday data:', error);
+            // Set defaults
+            rangeMin.value = 7;
+            rangeMax.value = 19;
+            updateSliderRange();
+        });
+}
+
+
+function parseTimeToDecimal(timeStr) {
+    const [hours, minutes] = timeStr.split(':').map(Number);
+    return hours + (minutes / 60);
 }
 
 function deleteScheduleEntry(employeeId, date, shiftTypeId, elementId) {
@@ -536,19 +743,3 @@ function updateMonthSelection() {
         monthSelect.value = currentMonthStart;
     }
 }
-
-function attachRightClickEventListeners() {
-    document.querySelectorAll('.employee-block').forEach(block => {
-        block.removeEventListener('contextmenu', handleContextMenu); // Remove existing listeners to avoid duplication
-        block.addEventListener('contextmenu', handleContextMenu); // Attach the new listener
-    });
-}
-
-function handleContextMenu(event) {
-    event.preventDefault();
-    const employeeId = this.getAttribute('data-employee-id');
-    const date = this.getAttribute('data-date');
-    const shiftTypeId = this.getAttribute('data-shift-type-id');
-    openOvertimeModal(employeeId, date, shiftTypeId);
-}
-

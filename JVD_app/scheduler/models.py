@@ -27,11 +27,26 @@ class Employee(models.Model):
         return hour_fond - total_special_hours
 
     def calculate_visak_sati(self, month, year):
-        total_hours = self.calculate_monthly_hours(month, year)
+        # Calculate Turnus (hours worked during day and night)
+        turnus = self.calculate_monthly_hours(month, year)
+        
+        # Fetch work days for the specified month and year
+        work_days = self.workday_set.filter(date__year=year, date__month=month)
+        
+        # Sum vacation_hours, sick_leave_hours, and article39_hours (Free Day Article 39 Hours)
+        special_hours = work_days.aggregate(
+            total=Sum('vacation_hours') + Sum('sick_leave_hours') + Sum('article39_hours')
+        )['total'] or 0
+        
+        # Get the Hour Fond for the month
         hour_fond = FixedHourFund.objects.get(month__year=year, month__month=month).required_hours
-        return total_hours - hour_fond
+        
+        # Calculate Višak Fonda
+        visak_fonda = turnus + special_hours - hour_fond
+        return visak_fonda
+
     
-    def calculate_and_store_excess_hours(employee, year, month):
+    def calculate_and_store_excess_hours(self, year, month):
         if month == 1:
             previous_excess = 0
             previous_vacation = 0
@@ -39,15 +54,15 @@ class Employee(models.Model):
             previous_month = month - 1 if month > 1 else 12
             previous_year = year if month > 1 else year - 1
             previous_record, created = ExcessHours.objects.get_or_create(
-                employee=employee, year=previous_year, month=previous_month,
-                defaults={'excess_hours': 0, 'vacation_hours_used': 0}  # Ensure defaults in case the record did not exist
+                employee=self, year=previous_year, month=previous_month,
+                defaults={'excess_hours': 0, 'vacation_hours_used': 0}
             )
             previous_excess = previous_record.excess_hours
             previous_vacation = previous_record.vacation_hours_used
 
-        current_excess = employee.calculate_visak_sati(month, year)
-        vacation_hours_this_month = WorkDay.objects.filter(
-            employee=employee, date__year=year, date__month=month
+        current_excess = self.calculate_visak_sati(month, year)
+        vacation_hours_this_month = self.workday_set.filter(
+            date__year=year, date__month=month
         ).aggregate(Sum('vacation_hours'))['vacation_hours__sum'] or 0
 
         cumulative_excess = previous_excess + current_excess
@@ -55,12 +70,13 @@ class Employee(models.Model):
 
         # Store or update the record
         ExcessHours.objects.update_or_create(
-            employee=employee, year=year, month=month,
+            employee=self, year=year, month=month,
             defaults={
                 'excess_hours': cumulative_excess,
                 'vacation_hours_used': cumulative_vacation
             }
         )
+
 
 class ExcessHours(models.Model):
     employee = models.ForeignKey(Employee, on_delete=models.CASCADE)

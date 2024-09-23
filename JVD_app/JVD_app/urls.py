@@ -5,7 +5,7 @@ from scheduler import views
 from django.contrib.auth import views as auth_views
 
 # Corrected imports
-from scheduler.views import radnici,landingPage, documents_view, schedule_view, api_schedule_data, update_overtime_hours, get_workday_data, update_schedule, delete_workday, playground
+from scheduler.views import radnici,landingPage, documents_view, schedule_view, api_schedule_data, update_overtime_hours, get_workday_data, update_schedule, delete_workday, playground, get_shift_type_details
 from scheduler.views.worker_views import add_or_edit_employee, get_employee_data, delete_employee, radnik_profil, handle_overtime, handle_free_day,handle_vacation,handle_sick_leave, delete_vacation, delete_sick_leave
 from scheduler.views.excel_views import download_schedule, download_sihterica
 from scheduler.views.pdf_views import download_schedule_pdf,download_timesheet_pdf
@@ -43,6 +43,7 @@ urlpatterns = [
     path('update_overtime_hours/', update_overtime_hours, name='update_overtime_hours'),
     path('get_workday_data/', get_workday_data, name='get_workday_data'),
     path('delete_workday/', delete_workday, name='delete_workday'),
+    path('get_shift_type_details/', views.get_shift_type_details, name='get_shift_type_details'),
 
     # Document views
     path('documents/', documents_view, name='documents_view'), 

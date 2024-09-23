@@ -638,6 +638,10 @@ video {
   top: 3.5rem;
 }
 
+.top-4 {
+  top: 1rem;
+}
+
 .z-10 {
   z-index: 10;
 }
@@ -752,8 +756,16 @@ video {
   display: none;
 }
 
+.h-0 {
+  height: 0px;
+}
+
 .h-10 {
   height: 2.5rem;
+}
+
+.h-2 {
+  height: 0.5rem;
 }
 
 .h-3 {
@@ -830,10 +842,6 @@ video {
 
 .w-screen {
   width: 100vw;
-}
-
-.w-1\/2 {
-  width: 50%;
 }
 
 .min-w-\[120px\] {
@@ -1138,6 +1146,11 @@ video {
   background-color: rgb(229 231 235 / var(--tw-bg-opacity));
 }
 
+.bg-gray-300 {
+  --tw-bg-opacity: 1;
+  background-color: rgb(209 213 219 / var(--tw-bg-opacity));
+}
+
 .bg-gray-50 {
   --tw-bg-opacity: 1;
   background-color: rgb(249 250 251 / var(--tw-bg-opacity));
@@ -1146,6 +1159,11 @@ video {
 .bg-gray-500 {
   --tw-bg-opacity: 1;
   background-color: rgb(107 114 128 / var(--tw-bg-opacity));
+}
+
+.bg-gray-700 {
+  --tw-bg-opacity: 1;
+  background-color: rgb(55 65 81 / var(--tw-bg-opacity));
 }
 
 .bg-gray-800 {
@@ -1310,6 +1328,11 @@ video {
 .text-xl {
   font-size: 1.25rem;
   line-height: 1.75rem;
+}
+
+.text-xs {
+  font-size: 0.75rem;
+  line-height: 1rem;
 }
 
 .font-bold {
@@ -1628,6 +1651,113 @@ video {
   background-color: rgb(156 163 175 / var(--tw-bg-opacity));
   --tw-text-opacity: 1;
   color: rgb(255 255 255 / var(--tw-text-opacity));
+}
+
+/* Style the range inputs */
+
+.range-input {
+  -webkit-appearance: none;
+  position: absolute;
+  width: 100%;
+  height: 0;
+  top: 0;
+  pointer-events: none;
+}
+
+.range-input::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 20px;
+  height: 20px;
+  background: #3b82f6;
+  border: 3px solid white;
+  box-shadow: 0 0 2px rgba(0,0,0,0.5);
+  border-radius: 50%;
+  cursor: pointer;
+  position: relative;
+  pointer-events: all;
+  -webkit-transition: background-color 0.2s, transform 0.2s;
+  transition: background-color 0.2s, transform 0.2s;
+}
+
+.range-input::-webkit-slider-thumb:hover {
+  background: #2563eb;
+}
+
+.range-input::-webkit-slider-thumb:active {
+  transform: scale(1.1);
+}
+
+.range-input::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  background: #3b82f6;
+  border: 3px solid white;
+  box-shadow: 0 0 2px rgba(0,0,0,0.5);
+  border-radius: 50%;
+  cursor: pointer;
+  position: relative;
+  pointer-events: all;
+  -moz-transition: background-color 0.2s, transform 0.2s;
+  transition: background-color 0.2s, transform 0.2s;
+}
+
+.range-input::-moz-range-thumb:hover {
+  background: #2563eb;
+}
+
+.range-input::-moz-range-thumb:active {
+  transform: scale(1.1);
+}
+
+/* Hide default tracks */
+
+.range-input::-webkit-slider-runnable-track,
+.range-input::-moz-range-track {
+  background: transparent;
+}
+
+/* Positioning for the slider elements */
+
+.slider-track,
+.slider-range {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  height: 4px;
+  border-radius: 2px;
+}
+
+.slider-track {
+  background: #d1d5db;
+  /* Tailwind gray-300 */
+  width: 100%;
+  z-index: 1;
+}
+
+.slider-range {
+  background: #3b82f6;
+  /* Tailwind blue-500 */
+  z-index: 2;
+  transition: left 0.2s, width 0.2s;
+}
+
+/* Tooltip styles */
+
+.tooltip-min,
+.tooltip-max {
+  top: -30px;
+  padding: 4px 8px;
+  white-space: nowrap;
+}
+
+.tooltip-min {
+  left: 0;
+  transform: translateX(-50%);
+}
+
+.tooltip-max {
+  right: 0;
+  transform: translateX(50%);
 }
 
 .checked\:border-transparent:checked {

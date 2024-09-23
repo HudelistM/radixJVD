@@ -226,40 +226,67 @@ def api_schedule_data(request):
 @transaction.atomic
 def update_overtime_hours(request):
     try:
+        # Parse JSON data from the request
         data = json.loads(request.body.decode('utf-8'))
+
+        # Extract required identifiers
         employee_id = data.get('employee_id')
         date = data.get('date')
-        shift_type_id = data.get('shift_type_id')  # Retrieve shift type ID from request
-        shift_type = ShiftType.objects.get(id=shift_type_id)  # Retrieve the shift type object
+        shift_type_id = data.get('shift_type_id')
 
-        overtime_hours = float(data.get('overtime_hours', 0) or 0)
-        overtime_hours_service = float(data.get('overtime_service', 0) or 0)
-        day_hours = float(data.get('day_hours', 0) or 0)
-        night_hours = float(data.get('night_hours', 0) or 0)
+        # Fetch the ShiftType instance
+        shift_type = ShiftType.objects.get(id=shift_type_id)
 
+        # Get or create the WorkDay instance
         work_day, created = WorkDay.objects.get_or_create(
             employee_id=employee_id, date=date, shift_type=shift_type
         )
-        print (overtime_hours_service)
-        
-        if 'overtime_hours' in data:
-            work_day.on_call_hours = max(work_day.on_call_hours - overtime_hours, 0)
-            work_day.overtime_hours += overtime_hours
-        if 'overtime_service' in data:
-            work_day.on_call_hours = max(work_day.on_call_hours - overtime_hours_service, 0)
-            work_day.overtime_service += overtime_hours_service
-        if 'day_hours' in data:
-            work_day.day_hours = day_hours
-        if 'night_hours' in data:
-            work_day.night_hours = night_hours
 
+        # Update fields based on the data received
+        if 'day_hours' in data:
+            work_day.day_hours = float(data.get('day_hours', 0))
+        if 'night_hours' in data:
+            work_day.night_hours = float(data.get('night_hours', 0))
+        if 'overtime_hours' in data:
+            overtime_hours = float(data.get('overtime_hours', 0))
+            # Adjust on_call_hours by subtracting overtime_hours
+            work_day.on_call_hours = max(work_day.on_call_hours - overtime_hours, 0)
+            work_day.overtime_hours = overtime_hours
+        if 'overtime_service' in data:
+            overtime_service = float(data.get('overtime_service', 0))
+            # Adjust on_call_hours by subtracting overtime_service
+            work_day.on_call_hours = max(work_day.on_call_hours - overtime_service, 0)
+            work_day.overtime_service = overtime_service
+        if 'note' in data:
+            work_day.note = data.get('note', '')
+
+        # Save the updated WorkDay instance
         work_day.save()
 
         return JsonResponse({'status': 'success'})
-    except WorkDay.DoesNotExist:
-        return JsonResponse({'error': 'WorkDay matching query does not exist.'}, status=400)
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=400)
+
+    
+    
+@require_http_methods(["GET"])
+def get_shift_type_details(request):
+    shift_type_id = request.GET.get('shift_type_id')
+
+    if not shift_type_id:
+        return JsonResponse({'error': 'Missing shift_type_id parameter'}, status=400)
+
+    try:
+        shift_type = ShiftType.objects.get(pk=shift_type_id)
+        data = {
+            'id': shift_type.id,
+            'name': shift_type.name,
+            'category': shift_type.category,
+        }
+        return JsonResponse(data)
+    except ShiftType.DoesNotExist:
+        return JsonResponse({'error': 'ShiftType not found'}, status=404)
+
 
 @require_http_methods(["GET"])
 def get_workday_data(request):
@@ -277,13 +304,16 @@ def get_workday_data(request):
             'day_hours': work_day.day_hours,
             'night_hours': work_day.night_hours,
             'overtime_hours': work_day.overtime_hours,
+            'overtime_service': work_day.overtime_service,
             'on_call_hours': work_day.on_call_hours,
+            'note': work_day.note,
         }
         return JsonResponse({'status': 'success', 'data': data})
     except WorkDay.DoesNotExist:
-        return JsonResponse({'error': 'WorkDay matching query does not exist.'}, status=404)
+        return JsonResponse({'status': 'success', 'data': {}})
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)
+
 
 @require_POST
 @csrf_exempt

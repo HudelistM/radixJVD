@@ -104,3 +104,102 @@
 .employee-locked {
   @apply text-white bg-gray-400 cursor-not-allowed;
 }
+
+/* Style the range inputs */
+.range-input {
+  -webkit-appearance: none;
+  position: absolute;
+  width: 100%;
+  height: 0;
+  top: 0;
+  pointer-events: none;
+}
+
+.range-input::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 20px;
+  height: 20px;
+  background: #3b82f6;
+  border: 3px solid white;
+  box-shadow: 0 0 2px rgba(0,0,0,0.5);
+  border-radius: 50%;
+  cursor: pointer;
+  position: relative;
+  pointer-events: all;
+  transition: background-color 0.2s, transform 0.2s;
+}
+
+.range-input::-webkit-slider-thumb:hover {
+  background: #2563eb;
+}
+
+.range-input::-webkit-slider-thumb:active {
+  transform: scale(1.1);
+}
+
+.range-input::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  background: #3b82f6;
+  border: 3px solid white;
+  box-shadow: 0 0 2px rgba(0,0,0,0.5);
+  border-radius: 50%;
+  cursor: pointer;
+  position: relative;
+  pointer-events: all;
+  transition: background-color 0.2s, transform 0.2s;
+}
+
+.range-input::-moz-range-thumb:hover {
+  background: #2563eb;
+}
+
+.range-input::-moz-range-thumb:active {
+  transform: scale(1.1);
+}
+
+/* Hide default tracks */
+.range-input::-webkit-slider-runnable-track,
+.range-input::-moz-range-track {
+  background: transparent;
+}
+
+/* Positioning for the slider elements */
+.slider-track,
+.slider-range {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  height: 4px;
+  border-radius: 2px;
+}
+
+.slider-track {
+  background: #d1d5db; /* Tailwind gray-300 */
+  width: 100%;
+  z-index: 1;
+}
+
+.slider-range {
+  background: #3b82f6; /* Tailwind blue-500 */
+  z-index: 2;
+  transition: left 0.2s, width 0.2s;
+}
+
+/* Tooltip styles */
+.tooltip-min,
+.tooltip-max {
+  top: -30px;
+  padding: 4px 8px;
+  white-space: nowrap;
+}
+
+.tooltip-min {
+  left: 0;
+  transform: translateX(-50%);
+}
+
+.tooltip-max {
+  right: 0;
+  transform: translateX(50%);
+}
