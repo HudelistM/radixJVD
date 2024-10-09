@@ -9,7 +9,7 @@ from django.db.models.functions import Cast, Coalesce
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 from datetime import date, timedelta, datetime
-from ..models import ScheduleEntry, ShiftType, Employee, WorkDay, FixedHourFund, Holiday, ExcessHours
+from ..models import ShiftType, Employee, WorkDay, FixedHourFund, Holiday, ExcessHours
 from io import BytesIO
 import calendar
 from django.contrib.auth.decorators import login_required
@@ -136,8 +136,8 @@ def fill_employees_in_template(wb, schedule_data, date_table_mapping):
             # Get starting rows for this table
             table_shifts = special_shift_rows[table_index]
 
-            for shift_type_id, entry in day_data.items():
-                if entry and entry.employees.exists():
+            for shift_type_id, employees_list in day_data.items():
+                if employees_list:
                     shift_type = ShiftType.objects.get(id=shift_type_id)
                     shift_name = shift_type.name
                     shift_column = shift_columns.get(shift_name, None)
@@ -157,7 +157,7 @@ def fill_employees_in_template(wb, schedule_data, date_table_mapping):
                         else:
                             rows = [shift_start_row, shift_start_row + 1, shift_start_row + 2]
 
-                        for idx, employee in enumerate(entry.employees.all()):
+                        for idx, employee in enumerate(employees_list):
                             if idx < len(rows):
                                 cell = sheet[f"{shift_column}{rows[idx]}"]
                                 # Add role number to the name
@@ -168,7 +168,7 @@ def fill_employees_in_template(wb, schedule_data, date_table_mapping):
                                 color_code = group_colors.get(group_value, '000000')  # Default to black
 
                                 # Apply the font color
-                                font = Font(name='Times New Roman',color=color_code, size=7, bold=True)
+                                font = Font(name='Times New Roman', color=color_code, size=7, bold=True)
                                 cell.font = font
 
                     elif shift_name in ['Slobodan Dan 1', 'Slobodan Dan 2']:
@@ -180,7 +180,7 @@ def fill_employees_in_template(wb, schedule_data, date_table_mapping):
 
                         rows = [shift_start_row + i for i in range(7)]  # 7 rows per day
 
-                        for idx, employee in enumerate(entry.employees.all()):
+                        for idx, employee in enumerate(employees_list):
                             if idx < len(rows):
                                 cell = sheet[f"{shift_column}{rows[idx]}"]
                                 # Add role number to the name
@@ -191,7 +191,7 @@ def fill_employees_in_template(wb, schedule_data, date_table_mapping):
                                 color_code = group_colors.get(group_value, '000000')  # Default to black
 
                                 # Apply the font color
-                                font = Font(name='Times New Roman',color=color_code, size=7, bold=True)
+                                font = Font(name='Times New Roman', color=color_code, size=7, bold=True)
                                 cell.font = font
 
                     else:
@@ -201,7 +201,7 @@ def fill_employees_in_template(wb, schedule_data, date_table_mapping):
                         # Adjust for day offset
                         shift_start_row += day_offset * 7
 
-                        for idx, employee in enumerate(entry.employees.all()):
+                        for idx, employee in enumerate(employees_list):
                             cell = sheet[f"{shift_column}{shift_start_row + idx}"]
                             # Add role number to the name
                             cell.value = f"{employee.surname} {employee.name[0]}. ({employee.role_number})"
@@ -272,22 +272,29 @@ def download_schedule(request):
 
     shift_types = ShiftType.objects.all()
 
+    # Prepare schedule data using WorkDay
     schedule_data = {}
     for day in week_dates:
-        schedule_data[day.strftime('%Y-%m-%d')] = {}
+        day_str = day.strftime('%Y-%m-%d')
+        schedule_data[day_str] = {}
         for shift_type in shift_types:
-            schedule_entry = ScheduleEntry.objects.filter(
-                date=day, shift_type=shift_type
-            ).first()
-            schedule_data[day.strftime('%Y-%m-%d')][shift_type.id] = schedule_entry
+            schedule_data[day_str][shift_type.id] = []
+
+    # Fetch WorkDay entries and populate schedule_data
+    workdays = WorkDay.objects.filter(date__in=week_dates).select_related('employee', 'shift_type')
+    for wd in workdays:
+        day_str = wd.date.strftime('%Y-%m-%d')
+        shift_type_id = wd.shift_type.id
+        schedule_data[day_str][shift_type_id].append(wd.employee)
 
     author_name = request.user.username
 
     excel_file = create_schedule_excel(week_dates, shift_types, schedule_data, author_name)
 
     response = HttpResponse(content=excel_file.read(), content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-    response['Content-Disposition'] = 'attachment; filename="schedule.xlsx"'
+    response['Content-Disposition'] = 'attachment; filename="Raspored.xlsx"'
     return response
+
 
 
 @login_required
