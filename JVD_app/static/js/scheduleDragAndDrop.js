@@ -1,4 +1,6 @@
 let rangeMin, rangeMax, sliderRange, startTimeDisplay, endTimeDisplay;
+let contextMenu = null;
+let contextMenuTarget = null;
 
 document.addEventListener('alpine:init', () => {
     console.log('Alpine initialized');
@@ -91,6 +93,8 @@ function reinitializeComponents() {
 
 // Call this once DOM is fully loaded
 document.addEventListener('DOMContentLoaded', function() {
+    contextMenu = document.getElementById('context-menu');
+
     initializeFeatureToggle();  // Initialize the feature toggle
 
     // Fetch and render the schedule grid
@@ -254,11 +258,23 @@ function fetchAndRenderSchedule() {
     let monthStart = document.getElementById('schedule-grid').getAttribute('data-month-start');
     console.log('MonthStart:', monthStart); // Confirming the month start
 
-    let startDate = moment(monthStart).startOf('month');
-    let endDate = moment(monthStart).endOf('month');
+    if (!monthStart) {
+        // Set monthStart to the first day of the current month
+        let today = new Date();
+        monthStart = `${today.getFullYear()}-${(today.getMonth() + 1).toString().padStart(2, '0')}-01`;
+        document.getElementById('schedule-grid').setAttribute('data-month-start', monthStart);
+    }
 
-    const startFormat = startDate.format('YYYY-MM-DD');
-    const endFormat = endDate.format('YYYY-MM-DD');
+    // Use moment.js to calculate dates
+    let firstDayOfMonth = moment(monthStart).startOf('month');
+    let lastDayOfMonth = moment(monthStart).endOf('month');
+
+    // Calculate week start and end dates to cover full weeks
+    let weekStartDate = firstDayOfMonth.clone().startOf('isoWeek'); // Monday
+    let weekEndDate = lastDayOfMonth.clone().endOf('isoWeek'); // Sunday
+
+    const weekStartFormat = weekStartDate.format('YYYY-MM-DD');
+    const weekEndFormat = weekEndDate.format('YYYY-MM-DD');
 
     fetch(`/schedule/?month_start=${monthStart}`, {
         headers: {
@@ -269,16 +285,17 @@ function fetchAndRenderSchedule() {
     .then(html => {
         document.getElementById('schedule-grid').innerHTML = html;
 
-        // After HTML is updated, fetch JSON data
-        return fetch(`/api/schedule/?month_start=${startFormat}&month_end=${endFormat}`);
+        // After HTML is updated, fetch JSON data for the full weeks
+        return fetch(`/api/schedule/?month_start=${weekStartFormat}&month_end=${weekEndFormat}`);
     })
-    .then(response => response.json()) // Process JSON response
+    .then(response => response.json())
     .then(data => {
         updateScheduleGrid(data);
         reinitializeComponents(); 
     })
     .catch(error => console.error('Error during fetch operations:', error));
 }
+
 
 function updateScheduleGrid(data) {
     document.querySelectorAll('.dropzone').forEach(dz => dz.innerHTML = '');
@@ -491,30 +508,37 @@ function submitOvertime() {
 function updateSliderRange() {
     let min = parseFloat(rangeMin.value);
     let max = parseFloat(rangeMax.value);
-  
+
     // Swap values if min > max
     if (min > max) {
-      [min, max] = [max, min];
-      rangeMin.value = min;
-      rangeMax.value = max;
+        [min, max] = [max, min];
+        rangeMin.value = min;
+        rangeMax.value = max;
     }
-  
+
     // Calculate percentages for positioning
     const rangeTotal = rangeMin.max - rangeMin.min;
     const minPercent = ((min - rangeMin.min) / rangeTotal) * 100;
     const maxPercent = ((max - rangeMin.min) / rangeTotal) * 100;
-  
+
     // Update the slider range position and width
     sliderRange.style.left = minPercent + '%';
     sliderRange.style.width = (maxPercent - minPercent) + '%';
-  
+
+    // Format times
+    const startTimeFormatted = formatTime(min);
+    const endTimeFormatted = formatTime(max);
+
     // Update displayed times
-    startTimeDisplay.textContent = formatTime(min);
-    endTimeDisplay.textContent = formatTime(max);
-  
-    // Update tooltip positions
+    startTimeDisplay.textContent = startTimeFormatted;
+    endTimeDisplay.textContent = endTimeFormatted;
+
+    // Update Alpine.js data for tooltips
     const tooltipMin = document.querySelector('.tooltip-min');
     const tooltipMax = document.querySelector('.tooltip-max');
+
+    tooltipMin.__x.$data.startTimeText = startTimeFormatted;
+    tooltipMax.__x.$data.endTimeText = endTimeFormatted;
   
     tooltipMin.style.left = `calc(${minPercent}% - 10px)`; // Adjust for thumb width
     tooltipMax.style.left = `calc(${maxPercent}% - 10px)`;
@@ -537,20 +561,81 @@ function updateSliderRange() {
   }
   
 
-function attachRightClickEventListeners() {
+  function attachRightClickEventListeners() {
     document.querySelectorAll('.employee-block').forEach(block => {
         block.removeEventListener('contextmenu', handleContextMenu); // Remove existing listeners to avoid duplication
         block.addEventListener('contextmenu', handleContextMenu); // Attach the new listener
     });
 }
 
+function openWorkerProfile(employeeId) {
+    // Construct the URL to the worker's profile page
+    const profileUrl = `/radnik_profil/${employeeId}/`;  // Adjust the URL based on your existing routing
+
+    // Navigate to the profile page
+    window.location.href = profileUrl;
+}
+
 function handleContextMenu(event) {
     event.preventDefault();
-    const employeeId = this.getAttribute('data-employee-id');
-    const date = this.getAttribute('data-date');
-    const shiftTypeId = this.getAttribute('data-shift-type-id');
-    openOvertimeModal(employeeId, date, shiftTypeId);
+
+    // Store the target element
+    contextMenuTarget = event.currentTarget;
+
+    // Position the context menu at the cursor
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+
+    const menuWidth = contextMenu.offsetWidth;
+    const menuHeight = contextMenu.offsetHeight;
+
+    let posX = event.pageX;
+    let posY = event.pageY;
+
+    // Adjust position if the menu would go off-screen
+    if (posX + menuWidth > viewportWidth) {
+        posX -= menuWidth;
+    }
+    if (posY + menuHeight > viewportHeight) {
+        posY -= menuHeight;
+    }
+
+    contextMenu.style.top = `${posY}px`;
+    contextMenu.style.left = `${posX}px`;
+    contextMenu.classList.remove('hidden');
+
+    // Close the context menu when clicking elsewhere
+    document.addEventListener('click', closeContextMenu);
 }
+
+function closeContextMenu(event) {
+    // Ignore clicks inside the context menu
+    if (event && event.target.closest('#context-menu')) return;
+
+    contextMenu.classList.add('hidden');
+    document.removeEventListener('click', closeContextMenu);
+}
+
+function handleContextMenuAction(action) {
+    if (!contextMenuTarget) return;
+
+    const employeeId = contextMenuTarget.getAttribute('data-employee-id');
+    const date = contextMenuTarget.getAttribute('data-date');
+    const shiftTypeId = contextMenuTarget.getAttribute('data-shift-type-id');
+    const elementId = contextMenuTarget.getAttribute('id');
+
+    if (action === 'edit') {
+        openOvertimeModal(employeeId, date, shiftTypeId);
+    } else if (action === 'delete') {
+        deleteScheduleEntry(employeeId, date, shiftTypeId, elementId);
+    } else if (action === 'open_profile') {
+        openWorkerProfile(employeeId);
+    }
+
+    // Close the context menu
+    closeContextMenu();
+}
+
 
 function fetchWorkdayDataFirstShift(employeeId, date, shiftTypeId) {
     fetch(`/get_workday_data/?employee_id=${employeeId}&date=${date}&shift_type_id=${shiftTypeId}`)
@@ -679,9 +764,10 @@ function changeMonth(offset) {
     let currentDate = moment(monthStart).add(offset, 'months');
 
     // Always use the first day of the new month when navigating
-    const firstDayOfMonth = currentDate.startOf('month').format('YYYY-MM-DD');
-    updateMonthStart(firstDayOfMonth);
+    const newMonthStart = currentDate.startOf('month').format('YYYY-MM-DD');
+    updateMonthStart(newMonthStart);
 }
+
 
 function setupMonthNavigation() {
     const prevMonthButton = document.getElementById('prev-month');
@@ -700,15 +786,16 @@ function setupMonthNavigation() {
 
 function updateMonthStart(newDate) {
     document.getElementById('schedule-grid').setAttribute('data-month-start', newDate);
-    document.getElementById('month-select').value = newDate;  // Select the correct month in the dropdown
-    fetchAndRenderSchedule();  // Fetch and display the schedule for the entire week coverage
+    document.getElementById('month-select').value = newDate;  // Update the dropdown
+    fetchAndRenderSchedule();  // Fetch and display the schedule for the full weeks
 }
+
 
 function populateMonthDropdown() {
     const monthSelect = document.getElementById('month-select');
     monthSelect.innerHTML = ''; // Clear existing options
 
-    // Get the current year to make sure the dropdown reflects the current and accurate year
+    // Get the current year
     const currentYear = new Date().getFullYear();
 
     // Define Croatian month names
@@ -729,6 +816,7 @@ function populateMonthDropdown() {
     updateMonthSelection();
 }
 
+
 function updateMonthSelection() {
     const currentMonthStart = document.getElementById('schedule-grid').getAttribute('data-month-start');
     const monthSelect = document.getElementById('month-select');
@@ -743,3 +831,4 @@ function updateMonthSelection() {
         monthSelect.value = currentMonthStart;
     }
 }
+

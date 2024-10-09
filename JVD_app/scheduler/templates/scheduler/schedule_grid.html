@@ -7,10 +7,19 @@
 {% with schedule_view=True %}
 
 <body>
+<!-- Context Menu -->
+<div id="context-menu" class="hidden fixed z-50 bg-white border border-gray-300 rounded shadow-md">
+  <ul>
+    <li class="px-4 py-2 hover:bg-gray-100 cursor-pointer" onclick="handleContextMenuAction('edit')">Uredi sate</li>
+    <li class="px-4 py-2 hover:bg-gray-100 cursor-pointer" onclick="handleContextMenuAction('delete')">Izbriši</li>
+    <li class="px-4 py-2 hover:bg-gray-100 cursor-pointer" onclick="handleContextMenuAction('open_profile')">Otvori profil</li>
+  </ul>
+</div>
+
   <!-- Main Content -->
   <div class="space-y-4 mt-4">
     <div class="shadow overflow-hidden rounded-lg border-b border-gray-200 w-full">
-      <div id="schedule-grid" data-month-start="{{ month_dates.0|date:'Y-m-d' }}">
+      <div id="schedule-grid" data-month-start="{{ current_month_start }}">
         {% include 'scheduler/scheduler_grid_inner.html' %}
       </div>
     </div>
@@ -38,7 +47,7 @@
         <div class="grid grid-cols-3 gap-1 group-container">
           {% for employee in group.list %}
           <div class="employee-block group-{{ employee.group }}" data-employee-id="{{ employee.id }}" data-group="{{ employee.group }}">
-            <span class="employee-name">({{ employee.role_number }}) {{ employee.surname }} {{ employee.name|slice:":1" }}.</span> <!-- Single span for both role and name -->
+            <span class="employee-name">({{ employee.role_number }}) {{ employee.surname }} {{ employee.name|slice:":1" }}.</span>
           </div>
           {% endfor %}
         </div>

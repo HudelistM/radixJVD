@@ -167,15 +167,6 @@ class SickLeave(models.Model):
 
     def __str__(self):
         return f"Sick leave from {self.start_date} to {self.end_date} for {self.employee.name}"
-
-class ScheduleEntry(models.Model):
-    date = models.DateField()
-    employees = models.ManyToManyField(Employee, related_name='schedule_entries')
-    shift_type = models.ForeignKey(ShiftType, on_delete=models.CASCADE)
-
-    class Meta:
-        unique_together = ('date', 'shift_type')
-
         
 class FixedHourFund(models.Model):
     month = models.DateField()  # Use just year and month for tracking

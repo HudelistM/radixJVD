@@ -1,16 +1,18 @@
 <!-- radnik_profil.html -->
 {% extends "base.html" %}
 {% load static %}
+{% load dict_utils %}
+{% load custom_tags %}
 {% block content %}
 <div class="container mx-auto p-4">
     <h1 class="text-3xl font-bold mb-6">Profil Radnika</h1>
-    
+
     <!-- Personal Information -->
     <div class="mb-6 p-6 bg-white rounded-lg shadow-md">
         <h2 class="text-2xl font-semibold mb-4">Osobni Podaci</h2>
         <p class="text-lg mb-2"><strong>Ime:</strong> {{ employee.name }} {{ employee.surname }}</p>
         <p class="text-lg mb-2"><strong>Pozicija:</strong> {{ employee.role }}</p>
-        <p class="text-lg mb-2"><strong>Grupa:</strong> 
+        <p class="text-lg mb-2"><strong>Grupa:</strong>
             {% if employee.group == '1' %} Ured
             {% elif employee.group == '2' %} Crvena smjena
             {% elif employee.group == '3' %} Zelena smjena
@@ -23,42 +25,181 @@
         <p class="text-lg"><strong>Slobodni dani po izboru:</strong> {{ free_days_choice_count }}/2</p>
     </div>
 
+    <!-- Monthly Hours Table -->
+    <div class="mt-6 p-6 bg-white rounded-lg shadow-md">
+        <h2 class="text-2xl font-semibold mb-4">Mjesečni Sati</h2>
+        <div class="flex justify-between items-center mb-4">
+            <!-- Month Navigation -->
+            <button id="prev-month"
+                class="text-lg font-semibold text-black hover:bg-gray-300 cursor-pointer rounded-lg px-4 py-2">
+                &larr; Prethodni Mjesec
+            </button>
+            <span class="text-xl font-bold">
+                {{ selected_date|croatian_month_name }} {{ selected_date|date:"Y" }}
+            </span>
+            <button id="next-month"
+                class="text-lg font-semibold text-black hover:bg-gray-300 cursor-pointer rounded-lg px-4 py-2">
+                Sljedeći Mjesec &rarr;
+            </button>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead>
+                    <tr>
+                        <th
+                            class="px-2 py-1 bg-gray-100 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Datum
+                        </th>
+                        <th data-field="day_hours"
+                            class="px-2 py-1 bg-gray-100 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Dnevni
+                        </th>
+                        <th data-field="night_hours"
+                            class="px-2 py-1 bg-gray-100 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Noćni
+                        </th>
+                        <th data-field="overtime_hours"
+                            class="px-2 py-1 bg-gray-100 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Prek. Sati
+                        </th>
+                        <th data-field="overtime_service"
+                            class="px-2 py-1 bg-gray-100 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Prek. Usluga
+                        </th>
+                        <th data-field="overtime_excess_fond"
+                            class="px-2 py-1 bg-gray-100 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Prek. Višak
+                        </th>
+                        <th data-field="overtime_free_day"
+                            class="px-2 py-1 bg-gray-100 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Prek. Slob. Dan
+                        </th>
+                        <th data-field="overtime_free_day_service"
+                            class="px-2 py-1 bg-gray-100 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Prek. Slob. Usl.
+                        </th>
+                        <th data-field="holiday_hours"
+                            class="px-2 py-1 bg-gray-100 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Blagdani
+                        </th>
+                        <th data-field="vacation_hours"
+                            class="px-2 py-1 bg-green-100 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Godišnji
+                        </th>
+                        <th data-field="sick_leave_hours"
+                            class="px-2 py-1 bg-red-100 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Bolovanje
+                        </th>
+                        <th data-field="article39_hours"
+                            class="px-2 py-1 bg-gray-100 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Članak 39
+                        </th>
+                        <th data-field="on_call_hours"
+                            class="px-2 py-1 bg-gray-100 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Priprema
+                        </th>
+                    </tr>
+                </thead>
+                <tbody id="hours-table-body">
+                    {% for day in month_dates %}
+                    {% with wd=workday_dict|dict_get:day %}
+                    <tr data-date="{{ day|date:" Y-m-d" }}">
+                        <td class="border px-2 py-1">
+                            <strong>{{ day|croatian_day_initial }}</strong> {{ day|date:"d.m.Y" }}
+                        </td>
+                        <td class="border px-2 py-1 editable-cell" data-field="day_hours">
+                            {{ wd.day_hours|default_if_none:'' }}
+                        </td>
+                        <td class="border px-2 py-1 editable-cell" data-field="night_hours">
+                            {{ wd.night_hours|default_if_none:'' }}
+                        </td>
+                        <td class="border px-2 py-1 editable-cell" data-field="overtime_hours">
+                            {{ wd.overtime_hours|default_if_none:'' }}
+                        </td>
+                        <td class="border px-2 py-1 editable-cell" data-field="overtime_service">
+                            {{ wd.overtime_service|default_if_none:'' }}
+                        </td>
+                        <td class="border px-2 py-1 editable-cell" data-field="overtime_excess_fond">
+                            {{ wd.overtime_excess_fond|default_if_none:'' }}
+                        </td>
+                        <td class="border px-2 py-1 editable-cell" data-field="overtime_free_day">
+                            {{ wd.overtime_free_day|default_if_none:'' }}
+                        </td>
+                        <td class="border px-2 py-1 editable-cell" data-field="overtime_free_day_service">
+                            {{ wd.overtime_free_day_service|default_if_none:'' }}
+                        </td>
+                        <td class="border px-2 py-1 editable-cell" data-field="holiday_hours">
+                            {{ wd.holiday_hours|default_if_none:'' }}
+                        </td>
+                        <td class="border px-2 py-1 editable-cell bg-green-100" data-field="vacation_hours">
+                            {{ wd.vacation_hours|default_if_none:'' }}
+                        </td>
+                        <td class="border px-2 py-1 editable-cell bg-red-100" data-field="sick_leave_hours">
+                            {{ wd.sick_leave_hours|default_if_none:'' }}
+                        </td>
+                        <td class="border px-2 py-1 editable-cell" data-field="article39_hours">
+                            {{ wd.article39_hours|default_if_none:'' }}
+                        </td>
+                        <td class="border px-2 py-1 editable-cell" data-field="on_call_hours">
+                            {{ wd.on_call_hours|default_if_none:'' }}
+                        </td>
+                    </tr>
+                    {% endwith %}
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+
+
     <!-- Main Blocks -->
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+    <div class="py-4 grid grid-cols-1 md:grid-cols-2 gap-6">
         <!-- Prekovremeni Rad Block -->
         <div x-data="{ open: false }" class="p-6 bg-white rounded-lg shadow-md">
             <h2 class="text-2xl font-semibold mb-4">Prekovremeni Rad</h2>
-            <div @click="open = !open" class="text-xl font-semibold text-black py-2 hover:bg-gray-300 cursor-pointer rounded-lg flex justify-between items-center">
+            <div @click="open = !open"
+                class="text-xl font-semibold text-black py-2 hover:bg-gray-300 cursor-pointer rounded-lg flex justify-between items-center">
                 <span>Dodaj Prekovremeni Rad</span>
-                <img :class="{ 'rotate-180': open }" class="transition-transform duration-200" src="{% static 'icons/down_arrow.svg' %}" alt="Arrow">
+                <img :class="{ 'rotate-180': open }" class="transition-transform duration-200"
+                    src="{% static 'icons/down_arrow.svg' %}" alt="Arrow">
             </div>
             <div x-show="open" x-transition>
                 <form method="POST" action="{% url 'handle_overtime' employee.id %}" class="mt-4">
                     {% csrf_token %}
                     <div class="mb-4">
                         <label for="date" class="block text-sm font-medium text-gray-700">Datum:</label>
-                        <input type="date" name="date" id="date" class="mt-1 block w-full py-2 px-3 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-red-500 focus:border-red-500 sm:text-sm" required>
+                        <input type="date" name="date" id="date"
+                            class="mt-1 block w-full py-2 px-3 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-red-500 focus:border-red-500 sm:text-sm"
+                            required>
                     </div>
                     <div class="mb-4">
                         <label for="hours" class="block text-sm font-medium text-gray-700">Broj sati:</label>
-                        <input type="number" name="hours" id="hours" class="mt-1 block w-full py-2 px-3 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-red-500 focus:border-red-500 sm:text-sm" required>
+                        <input type="number" name="hours" id="hours"
+                            class="mt-1 block w-full py-2 px-3 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-red-500 focus:border-red-500 sm:text-sm"
+                            required>
                     </div>
                     <div class="mb-4">
-                        <label for="overtime_type" class="block text-sm font-medium text-gray-700">Tip prekovremenog rada:</label>
-                        <select name="overtime_type" id="overtime_type" class="mt-1 block w-full py-2 px-3 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-red-500 focus:border-red-500 sm:text-sm">
+                        <label for="overtime_type" class="block text-sm font-medium text-gray-700">Tip prekovremenog
+                            rada:</label>
+                        <select name="overtime_type" id="overtime_type"
+                            class="mt-1 block w-full py-2 px-3 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-red-500 focus:border-red-500 sm:text-sm">
                             <option value="overtime_free_day">Prekovremeni Slobodan Dan</option>
                             <option value="overtime_free_day_service">Prekovremeni Slobodan Dan Usluga</option>
                         </select>
                     </div>
                     <div class="mb-4">
                         <label for="shift_type" class="block text-sm font-medium text-gray-700">Smjena:</label>
-                        <select name="shift_type" id="shift_type" class="mt-1 block w-full py-2 px-3 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-red-500 focus:border-red-500 sm:text-sm">
+                        <select name="shift_type" id="shift_type"
+                            class="mt-1 block w-full py-2 px-3 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-red-500 focus:border-red-500 sm:text-sm">
                             {% for shift in shift_types %}
                             <option value="{{ shift.id }}">{{ shift.name }}</option>
                             {% endfor %}
                         </select>
                     </div>
-                    <button type="submit" class="px-4 py-2 bg-red-500 hover:bg-red-700 text-white font-bold rounded-lg shadow">Dodaj Prekovremene</button>
+                    <button type="submit"
+                        class="px-4 py-2 bg-red-500 hover:bg-red-700 text-white font-bold rounded-lg shadow">Dodaj
+                        Prekovremene</button>
                 </form>
             </div>
             <div class="mt-6">
@@ -72,35 +213,45 @@
         <!-- Slobodni Dani Block -->
         <div x-data="{ open: false, isArticle39: false }" class="p-6 bg-white rounded-lg shadow-md">
             <h2 class="text-2xl font-semibold mb-4">Slobodni Dani</h2>
-            <div @click="open = !open" class="text-xl font-semibold text-black py-2 hover:bg-gray-300 cursor-pointer rounded-lg flex justify-between items-center">
+            <div @click="open = !open"
+                class="text-xl font-semibold text-black py-2 hover:bg-gray-300 cursor-pointer rounded-lg flex justify-between items-center">
                 <span>Dodaj Slobodan Dan</span>
-                <img :class="{ 'rotate-180': open }" class="transition-transform duration-200" src="{% static 'icons/down_arrow.svg' %}" alt="Arrow">
+                <img :class="{ 'rotate-180': open }" class="transition-transform duration-200"
+                    src="{% static 'icons/down_arrow.svg' %}" alt="Arrow">
             </div>
             <div x-show="open" x-transition>
                 <form method="POST" action="{% url 'handle_free_day' employee.id %}" class="mt-4">
                     {% csrf_token %}
                     <div class="mb-4">
                         <label for="date" class="block text-sm font-medium text-gray-700">Datum:</label>
-                        <input type="date" name="date" id="date" class="mt-1 block w-full py-2 px-3 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-red-500 focus:border-red-500 sm:text-sm" x-bind:disabled="isArticle39">
+                        <input type="date" name="date" id="date"
+                            class="mt-1 block w-full py-2 px-3 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-red-500 focus:border-red-500 sm:text-sm"
+                            x-bind:disabled="isArticle39">
                     </div>
                     <div class="mb-4" x-show="isArticle39" x-transition>
                         <label for="date_start" class="block text-sm font-medium text-gray-700">Početni datum:</label>
-                        <input type="date" name="date_start" id="date_start" class="mt-1 block w-full py-2 px-3 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-red-500 focus:border-red-500 sm:text-sm">
+                        <input type="date" name="date_start" id="date_start"
+                            class="mt-1 block w-full py-2 px-3 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-red-500 focus:border-red-500 sm:text-sm">
                     </div>
                     <div class="mb-4" x-show="isArticle39" x-transition>
                         <label for="date_end" class="block text-sm font-medium text-gray-700">Krajnji datum:</label>
-                        <input type="date" name="date_end" id="date_end" class="mt-1 block w-full py-2 px-3 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-red-500 focus:border-red-500 sm:text-sm">
+                        <input type="date" name="date_end" id="date_end"
+                            class="mt-1 block w-full py-2 px-3 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-red-500 focus:border-red-500 sm:text-sm">
                     </div>
                     <div class="mb-4">
-                        <label for="is_article_39" class="block text-sm font-medium text-gray-700">Tip slobodnog dana:</label>
-                        <select name="is_article_39" id="is_article_39" class="mt-1 block w-full py-2 px-3 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-red-500 focus:border-red-500 sm:text-sm" x-on:change="isArticle39 = $event.target.value === 'true'">
+                        <label for="is_article_39" class="block text-sm font-medium text-gray-700">Tip slobodnog
+                            dana:</label>
+                        <select name="is_article_39" id="is_article_39"
+                            class="mt-1 block w-full py-2 px-3 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-red-500 focus:border-red-500 sm:text-sm"
+                            x-on:change="isArticle39 = $event.target.value === 'true'">
                             <option value="false">Po izboru</option>
                             <option value="true">Članak 39</option>
                         </select>
                     </div>
                     <div class="mb-4">
                         <label for="shift_type" class="block text-sm font-medium text-gray-700">Smjena</label>
-                        <select name="shift_type" id="shift_type" class="mt-1 block w-full py-2 px-3 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-red-500 focus:border-red-500 sm:text-sm">
+                        <select name="shift_type" id="shift_type"
+                            class="mt-1 block w-full py-2 px-3 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-red-500 focus:border-red-500 sm:text-sm">
                             {% for shift in shift_types %}
                             {% if shift.name == 'Slobodan Dan 1' or shift.name == 'Slobodan Dan 2' %}
                             <option value="{{ shift.id }}">{{ shift.name }}</option>
@@ -108,7 +259,9 @@
                             {% endfor %}
                         </select>
                     </div>
-                    <button type="submit" class="px-4 py-2 bg-red-500 hover:bg-red-700 text-white font-bold rounded-lg shadow">Dodaj Slobodan Dan</button>
+                    <button type="submit"
+                        class="px-4 py-2 bg-red-500 hover:bg-red-700 text-white font-bold rounded-lg shadow">Dodaj
+                        Slobodan Dan</button>
                 </form>
             </div>
             <div class="mt-6">
@@ -130,22 +283,30 @@
         <!-- Godišnji Odmor Block -->
         <div x-data="{ open: false }" class="p-6 bg-white rounded-lg shadow-md">
             <h2 class="text-2xl font-semibold mb-4">Godišnji Odmor</h2>
-            <div @click="open = !open" class="text-xl font-semibold text-black py-2 hover:bg-gray-300 cursor-pointer rounded-lg flex justify-between items-center">
+            <div @click="open = !open"
+                class="text-xl font-semibold text-black py-2 hover:bg-gray-300 cursor-pointer rounded-lg flex justify-between items-center">
                 <span>Dodaj Godišnji Odmor</span>
-                <img :class="{ 'rotate-180': open }" class="transition-transform duration-200" src="{% static 'icons/down_arrow.svg' %}" alt="Arrow">
+                <img :class="{ 'rotate-180': open }" class="transition-transform duration-200"
+                    src="{% static 'icons/down_arrow.svg' %}" alt="Arrow">
             </div>
             <div x-show="open" x-transition>
                 <form method="POST" action="{% url 'handle_vacation' employee.id %}" class="mt-4">
                     {% csrf_token %}
                     <div class="mb-4">
                         <label for="start_date" class="block text-sm font-medium text-gray-700">Početni datum:</label>
-                        <input type="date" name="start_date" id="start_date" class="mt-1 block w-full py-2 px-3 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-red-500 focus:border-red-500 sm:text-sm" required>
+                        <input type="date" name="start_date" id="start_date"
+                            class="mt-1 block w-full py-2 px-3 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-red-500 focus:border-red-500 sm:text-sm"
+                            required>
                     </div>
                     <div class="mb-4">
                         <label for="end_date" class="block text-sm font-medium text-gray-700">Krajnji datum:</label>
-                        <input type="date" name="end_date" id="end_date" class="mt-1 block w-full py-2 px-3 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-red-500 focus:border-red-500 sm:text-sm" required>
+                        <input type="date" name="end_date" id="end_date"
+                            class="mt-1 block w-full py-2 px-3 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-red-500 focus:border-red-500 sm:text-sm"
+                            required>
                     </div>
-                    <button type="submit" class="px-4 py-2 bg-red-500 hover:bg-red-700 text-white font-bold rounded-lg shadow">Dodaj Godišnji Odmor</button>
+                    <button type="submit"
+                        class="px-4 py-2 bg-red-500 hover:bg-red-700 text-white font-bold rounded-lg shadow">Dodaj
+                        Godišnji Odmor</button>
                 </form>
             </div>
             <div class="mt-6">
@@ -154,12 +315,15 @@
                     {% for vacation in vacations %}
                     <li class="bg-gray-100 p-4 rounded-lg shadow flex justify-between items-center">
                         <div>
-                            <p class="text-gray-700"><strong>Od:</strong> {{ vacation.start_date|date:"d.m.Y" }} <strong>Do:</strong> {{ vacation.end_date|date:"d.m.Y" }}</p>
+                            <p class="text-gray-700"><strong>Od:</strong> {{ vacation.start_date|date:"d.m.Y" }}
+                                <strong>Do:</strong> {{ vacation.end_date|date:"d.m.Y" }}
+                            </p>
                         </div>
                         <form method="POST" action="{% url 'delete_vacation' vacation.id %}">
                             {% csrf_token %}
                             <button type="submit">
-                                <img src="{% static 'icons/deleteB.svg' %}" alt="Delete" class="h-7 w-7 mr-2 border-gray-950 rounded-md hover:bg-red-500 transition-colors duration-300 hover:shadow-md">
+                                <img src="{% static 'icons/deleteB.svg' %}" alt="Delete"
+                                    class="h-7 w-7 mr-2 border-gray-950 rounded-md hover:bg-red-500 transition-colors duration-300 hover:shadow-md">
                             </button>
                         </form>
                     </li>
@@ -175,22 +339,30 @@
         <!-- Sick Leave Block -->
         <div x-data="{ open: false }" class="p-6 bg-white rounded-lg shadow-md">
             <h2 class="text-2xl font-semibold mb-4">Bolovanje</h2>
-            <div @click="open = !open" class="text-xl font-semibold text-black py-2 hover:bg-gray-300 cursor-pointer rounded-lg flex justify-between items-center">
+            <div @click="open = !open"
+                class="text-xl font-semibold text-black py-2 hover:bg-gray-300 cursor-pointer rounded-lg flex justify-between items-center">
                 <span>Dodaj Bolovanje</span>
-                <img :class="{ 'rotate-180': open }" class="transition-transform duration-200" src="{% static 'icons/down_arrow.svg' %}" alt="Arrow">
+                <img :class="{ 'rotate-180': open }" class="transition-transform duration-200"
+                    src="{% static 'icons/down_arrow.svg' %}" alt="Arrow">
             </div>
             <div x-show="open" x-transition>
                 <form method="POST" action="{% url 'handle_sick_leave' employee.id %}" class="mt-4">
                     {% csrf_token %}
                     <div class="mb-4">
                         <label for="start_date" class="block text-sm font-medium text-gray-700">Početni datum:</label>
-                        <input type="date" name="start_date" id="start_date" class="mt-1 block w-full py-2 px-3 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-red-500 focus:border-red-500 sm:text-sm" required>
+                        <input type="date" name="start_date" id="start_date"
+                            class="mt-1 block w-full py-2 px-3 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-red-500 focus:border-red-500 sm:text-sm"
+                            required>
                     </div>
                     <div class="mb-4">
                         <label for="end_date" class="block text-sm font-medium text-gray-700">Krajnji datum:</label>
-                        <input type="date" name="end_date" id="end_date" class="mt-1 block w-full py-2 px-3 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-red-500 focus:border-red-500 sm:text-sm" required>
+                        <input type="date" name="end_date" id="end_date"
+                            class="mt-1 block w-full py-2 px-3 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-red-500 focus:border-red-500 sm:text-sm"
+                            required>
                     </div>
-                    <button type="submit" class="px-4 py-2 bg-red-500 hover:bg-red-700 text-white font-bold rounded-lg shadow">Dodaj Bolovanje</button>
+                    <button type="submit"
+                        class="px-4 py-2 bg-red-500 hover:bg-red-700 text-white font-bold rounded-lg shadow">Dodaj
+                        Bolovanje</button>
                 </form>
             </div>
             <div class="mt-6">
@@ -199,7 +371,9 @@
                     {% for sick_leave in sick_leaves %}
                     <li class="bg-gray-100 p-4 rounded-lg shadow flex justify-between items-center">
                         <div>
-                            <p class="text-gray-700"><strong>Od:</strong> {{ sick_leave.start_date|date:"d.m.Y" }} <strong>Do:</strong> {{ sick_leave.end_date|date:"d.m.Y" }}</p>
+                            <p class="text-gray-700"><strong>Od:</strong> {{ sick_leave.start_date|date:"d.m.Y" }}
+                                <strong>Do:</strong> {{ sick_leave.end_date|date:"d.m.Y" }}
+                            </p>
                         </div>
                         <form method="POST" action="{% url 'delete_sick_leave' sick_leave.id %}">
                             {% csrf_token %}
@@ -218,4 +392,126 @@
         </div>
     </div>
 </div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        // Handle cell editing
+        const tableBody = document.getElementById('hours-table-body');
+        tableBody.addEventListener('click', function (event) {
+            const target = event.target;
+            if (target.classList.contains('editable-cell')) {
+                const originalValue = target.textContent.trim();
+                const input = document.createElement('input');
+                input.type = 'number';
+                input.step = '0.01';
+                input.value = originalValue;
+                input.className = 'w-full h-full';
+                input.style.backgroundColor = target.style.backgroundColor; // Preserve background color
+
+                // Replace cell content with input
+                target.textContent = '';
+                target.appendChild(input);
+                input.focus();
+
+                const field = target.getAttribute('data-field');
+                highlightColumn(field);
+
+                input.addEventListener('blur', function () {
+                    const newValue = input.value.trim();
+                    const date = target.parentElement.getAttribute('data-date');
+
+                    // Restore cell content
+                    target.textContent = newValue;
+
+                    // Remove highlight
+                    removeHighlightColumn(field);
+
+                    // Send AJAX request to update the value
+                    updateWorkdayHours('{{ employee.id }}', date, field, newValue);
+                });
+
+                input.addEventListener('keydown', function (e) {
+                    if (e.key === 'Enter') {
+                        input.blur();
+                    }
+                });
+            }
+        });
+
+        function highlightColumn(field) {
+            const cells = document.querySelectorAll(`td[data-field='${field}'], th[data-field='${field}']`);
+            cells.forEach(cell => {
+                cell.classList.add('bg-yellow-100');
+            });
+        }
+
+        function removeHighlightColumn(field) {
+            const cells = document.querySelectorAll(`td[data-field='${field}'], th[data-field='${field}']`);
+            cells.forEach(cell => {
+                // Remove the highlight but preserve original background color
+                cell.classList.remove('bg-yellow-100');
+            });
+        }
+
+        function updateWorkdayHours(employeeId, date, field, value) {
+            fetch(`/update_workday_hours/${employeeId}/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken'),
+                },
+                body: JSON.stringify({
+                    date: date,
+                    field: field,
+                    value: value,
+                })
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status !== 'success') {
+                        alert('Error updating workday hours');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Error updating workday hours');
+                });
+        }
+
+        // CSRF token function
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';').map(c => c.trim());
+                for (let cookie of cookies) {
+                    if (cookie.startsWith(name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+
+        // Handle month navigation
+        const prevButton = document.getElementById('prev-month');
+        const nextButton = document.getElementById('next-month');
+
+        prevButton.addEventListener('click', function () {
+            navigateMonth(-1);
+        });
+
+        nextButton.addEventListener('click', function () {
+            navigateMonth(1);
+        });
+
+        function navigateMonth(offset) {
+            const currentMonth = new Date('{{ selected_date|date:"Y-m-d" }}');
+            currentMonth.setMonth(currentMonth.getMonth() + offset);
+            const newMonthStr = currentMonth.toISOString().split('T')[0];
+            window.location.href = `?month=${newMonthStr}`;
+        }
+    });
+</script>
+
 {% endblock %}

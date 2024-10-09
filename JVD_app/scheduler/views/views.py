@@ -3,10 +3,11 @@ from django.db import transaction
 from django.db.models import Q
 from django.db.models import F
 from django.db.models import Sum
+from collections import defaultdict
 
 #Import formi i modela
 from ..forms import UserRegisterForm, EmployeeForm
-from ..models import ScheduleEntry, ShiftType, Employee, WorkDay, FixedHourFund, Holiday, ExcessHours
+from ..models import ShiftType, Employee, WorkDay, FixedHourFund, Holiday, ExcessHours
 #Django.views importovi
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
@@ -135,9 +136,9 @@ def get_last_day_of_week(date):
     day_idx = date.weekday()
     return date + timedelta(days=(6 - day_idx))
 
+
 @login_required
 def schedule_view(request):
-    print("All query params:", request.GET)
     month_start_str = request.GET.get('month_start')
     print("Month start string received:", month_start_str)
 
@@ -161,17 +162,16 @@ def schedule_view(request):
 
     shift_types = ShiftType.objects.all()
 
-    # Prepare schedule data
+    # Prepare schedule data using WorkDay
     schedule_data = {}
+    workdays = WorkDay.objects.filter(date__in=month_dates).select_related('employee', 'shift_type')
+
     for day in month_dates:
         day_key = day.strftime('%Y-%m-%d')
         schedule_data[day_key] = {}
         for shift_type in shift_types:
-            entry = ScheduleEntry.objects.filter(date=day, shift_type=shift_type).first()
-            if entry:
-                schedule_data[day_key][shift_type.id] = entry
-            else:
-                schedule_data[day_key][shift_type.id] = None
+            employees = [wd.employee for wd in workdays if wd.date == day and wd.shift_type == shift_type]
+            schedule_data[day_key][shift_type.id] = employees if employees else None
 
     # Fetch employees and sort them by group and role_number
     employees = Employee.objects.all().order_by('group', 'role_number')
@@ -182,6 +182,7 @@ def schedule_view(request):
         'schedule_data': schedule_data,
         'employees': employees,  # Pass sorted employees to the template
         'schedule_view': True,
+        'current_month_start': month_start.strftime('%Y-%m-%d'),
     }
 
     if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
@@ -189,38 +190,38 @@ def schedule_view(request):
     else:
         return render(request, 'scheduler/schedule_grid.html', context)
 
-
 @require_http_methods(["GET"])
 def api_schedule_data(request):
     month_start_fetch = request.GET.get('month_start')
     month_end_fetch = request.GET.get('month_end')
-    
+
+    if not month_start_fetch or not month_end_fetch:
+        return JsonResponse({'error': 'Invalid or missing date parameters'}, status=400)
+
     month_start = datetime.strptime(month_start_fetch, '%Y-%m-%d').date()
     month_end = datetime.strptime(month_end_fetch, '%Y-%m-%d').date()
 
-    month_start_date = get_first_day_of_week(month_start)
-    month_end_date = get_last_day_of_week(month_end)
-    
-    print("Week start date api_schedule_data:",month_start_date)
-    print("Week start date api_schedule_data:",month_end_date)
+    workdays = WorkDay.objects.filter(
+        date__range=[month_start, month_end]
+    ).select_related('employee', 'shift_type')
 
-    if not month_start or not month_end_date:
-        return JsonResponse({'error': 'Invalid or missing date parameters'}, status=400)
+    schedule_dict = defaultdict(lambda: defaultdict(list))
 
-    schedule_entries = ScheduleEntry.objects.filter(
-        date__range=[month_start_date, month_end_date]
-    ).select_related('shift_type').prefetch_related('employees')
-
-    schedule_list = []
-    for entry in schedule_entries:
-        schedule_list.append({
-            "date": entry.date.strftime('%Y-%m-%d'),
-            "shift_type_id": entry.shift_type.id,
-            "employees": list(entry.employees.values('id', 'name', 'surname', 'group', 'role_number'))  # Include role_number here
+    for wd in workdays:
+        key = (wd.date.strftime('%Y-%m-%d'), wd.shift_type.id)
+        schedule_dict[key]['date'] = wd.date.strftime('%Y-%m-%d')
+        schedule_dict[key]['shift_type_id'] = wd.shift_type.id
+        schedule_dict[key]['employees'].append({
+            'id': wd.employee.id,
+            'name': wd.employee.name,
+            'surname': wd.employee.surname,
+            'group': wd.employee.group,
+            'role_number': wd.employee.role_number
         })
 
-
+    schedule_list = list(schedule_dict.values())
     return JsonResponse(schedule_list, safe=False)
+
 
 
 @require_http_methods(["POST"])
@@ -347,12 +348,6 @@ def delete_workday(request):
                     next_day_workday.sunday_hours = 5
                 next_day_workday.save()
                 
-                # Handle ScheduleEntry for the deleted WorkDay
-                schedule_entry = ScheduleEntry.objects.filter(date=date_parsed, shift_type_id=shift_type_id).first()
-                if schedule_entry:
-                    schedule_entry.employees.remove(employee_id)
-                    if not schedule_entry.employees.exists():
-                        schedule_entry.delete()
             elif workday.day_hours > 3.0 and workday.night_hours > 6.0 and next_day_workday.day_hours == 1.0 and next_day_workday.night_hours == 6.0:
                 print("This is  the second 2nd shift being deleted")
                 next_day_workday.delete()
@@ -370,14 +365,6 @@ def delete_workday(request):
                 next_day_workday.delete()
         else:               
             workday.delete()
-
-        # Handle ScheduleEntry for the deleted WorkDay
-        schedule_entry = ScheduleEntry.objects.filter(date=date_parsed, shift_type_id=shift_type_id).first()
-        if schedule_entry:
-            schedule_entry.employees.remove(employee_id)
-            if not schedule_entry.employees.exists():
-                schedule_entry.delete()
-
 
         return JsonResponse({'status': 'success', 'message': 'Workday and related entries deleted successfully.'})
     except Exception as e:
@@ -492,18 +479,6 @@ def update_schedule(request):
                 original_shift_type = get_object_or_404(ShiftType, pk=data['originalShiftTypeId'])
                 next_day = original_date + timedelta(days=1)
 
-                # Handling schedule entries
-                original_entry = ScheduleEntry.objects.filter(date=original_date, shift_type=original_shift_type).first()
-                if original_entry:
-                    original_entry.employees.remove(employee)
-                    if not original_entry.employees.exists():
-                        original_entry.delete()
-
-                # Create or get the new schedule entry
-                schedule_entry, created = ScheduleEntry.objects.get_or_create(
-                    date=date, shift_type=shift_type
-                )
-                schedule_entry.employees.add(employee)
 
                 # Handling workday entries for night shifts
                 original_workday = WorkDay.objects.filter(date=original_date, shift_type=original_shift_type, employee=employee).first()
@@ -530,10 +505,7 @@ def update_schedule(request):
                         original_workday.delete()
 
             elif data['action'] == 'add':
-                schedule_entry, created = ScheduleEntry.objects.get_or_create(
-                    date=date, shift_type=shift_type
-                )
-                schedule_entry.employees.add(employee)
+                pass
 
             # Logging success
             logger.info(f"Schedule updated successfully for employee {employee.id} on {date}")

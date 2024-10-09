@@ -11,7 +11,7 @@ from reportlab.pdfbase import pdfmetrics
 
 import os
 from django.http import HttpResponse
-from ..models import ScheduleEntry, ShiftType, Employee, WorkDay, FixedHourFund, Holiday, ExcessHours
+from ..models import ShiftType, Employee, WorkDay, FixedHourFund, Holiday, ExcessHours
 from io import BytesIO
 import calendar
 from calendar import monthrange
