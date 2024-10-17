@@ -25,6 +25,23 @@ from openpyxl.styles import Font
 #--------------------- Generiranje Excel datoteki -------------------------
 #--------------------------------------------------------------------------
 
+def is_night_shift_start(wd):
+    if not wd.shift_type.isNightShift:
+        return False
+    if wd.shift_type.name == 'Priprema od 19:00':
+        # Check if it's the starting day based on on_call_hours
+        if wd.on_call_hours == 5:
+            return True  # Starting day
+        else:
+            return False  # Next day
+    # Existing logic for other night shifts
+    if wd.day_hours >= 3:
+        return True
+    else:
+        return False
+
+
+
 def get_week_dates(start_date):
     # start_date is assumed to be a Monday
     return [start_date + timedelta(days=i) for i in range(7)]
@@ -283,9 +300,14 @@ def download_schedule(request):
     # Fetch WorkDay entries and populate schedule_data
     workdays = WorkDay.objects.filter(date__in=week_dates).select_related('employee', 'shift_type')
     for wd in workdays:
-        day_str = wd.date.strftime('%Y-%m-%d')
-        shift_type_id = wd.shift_type.id
-        schedule_data[day_str][shift_type_id].append(wd.employee)
+        include_wd = True
+        if wd.shift_type.isNightShift:
+            if not is_night_shift_start(wd):
+                include_wd = False
+        if include_wd:
+            day_str = wd.date.strftime('%Y-%m-%d')
+            shift_type_id = wd.shift_type.id
+            schedule_data[day_str][shift_type_id].append(wd.employee)
 
     author_name = request.user.username
 

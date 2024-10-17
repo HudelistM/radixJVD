@@ -108,7 +108,8 @@ document.addEventListener('DOMContentLoaded', function() {
     setupMonthNavigation();
     attachRightClickEventListeners();
 
-
+    initializeDateRangePicker();
+    initializeFilterOptions();
 });
 
 let drake = null;
@@ -255,38 +256,57 @@ function updateSchedule(employeeId, shiftTypeId, date, action, originalDate, ori
 }
 
 function fetchAndRenderSchedule() {
-    let monthStart = document.getElementById('schedule-grid').getAttribute('data-month-start');
-    console.log('MonthStart:', monthStart); // Confirming the month start
+    const scheduleGrid = document.getElementById('schedule-grid');
+    let dateStart = scheduleGrid.getAttribute('data-date-start');
+    let dateEnd = scheduleGrid.getAttribute('data-date-end');
+    let monthStart = scheduleGrid.getAttribute('data-month-start');
 
-    if (!monthStart) {
-        // Set monthStart to the first day of the current month
+    if (dateStart && dateEnd) {
+        // Use the date range
+        var startDate = moment(dateStart);
+        var endDate = moment(dateEnd);
+    } else if (monthStart) {
+        // Use the month start
+        var startDate = moment(monthStart).startOf('month');
+        var endDate = moment(monthStart).endOf('month');
+    } else {
+        // Default to current month
         let today = new Date();
         monthStart = `${today.getFullYear()}-${(today.getMonth() + 1).toString().padStart(2, '0')}-01`;
-        document.getElementById('schedule-grid').setAttribute('data-month-start', monthStart);
+        scheduleGrid.setAttribute('data-month-start', monthStart);
+        var startDate = moment(monthStart).startOf('month');
+        var endDate = moment(monthStart).endOf('month');
     }
 
-    // Use moment.js to calculate dates
-    let firstDayOfMonth = moment(monthStart).startOf('month');
-    let lastDayOfMonth = moment(monthStart).endOf('month');
-
     // Calculate week start and end dates to cover full weeks
-    let weekStartDate = firstDayOfMonth.clone().startOf('isoWeek'); // Monday
-    let weekEndDate = lastDayOfMonth.clone().endOf('isoWeek'); // Sunday
+    let weekStartDate = startDate.clone().startOf('isoWeek'); // Monday
+    let weekEndDate = endDate.clone().endOf('isoWeek'); // Sunday
 
     const weekStartFormat = weekStartDate.format('YYYY-MM-DD');
     const weekEndFormat = weekEndDate.format('YYYY-MM-DD');
 
-    fetch(`/schedule/?month_start=${monthStart}`, {
+    let queryParams = '';
+    if (dateStart && dateEnd) {
+        queryParams = `?date_start=${weekStartFormat}&date_end=${weekEndFormat}`;
+    } else {
+        queryParams = `?month_start=${monthStart}`;
+    }
+
+    fetch(`/schedule/${queryParams}`, {
         headers: {
             'X-Requested-With': 'XMLHttpRequest'  // Important for Django to recognize this as an AJAX request
         }
     })
     .then(response => response.text())  // Expect HTML in response
     .then(html => {
-        document.getElementById('schedule-grid').innerHTML = html;
+        scheduleGrid.innerHTML = html;
 
         // After HTML is updated, fetch JSON data for the full weeks
-        return fetch(`/api/schedule/?month_start=${weekStartFormat}&month_end=${weekEndFormat}`);
+        if (dateStart && dateEnd) {
+            return fetch(`/api/schedule/?date_start=${weekStartFormat}&date_end=${weekEndFormat}`);
+        } else {
+            return fetch(`/api/schedule/?month_start=${weekStartFormat}&month_end=${weekEndFormat}`);
+        }
     })
     .then(response => response.json())
     .then(data => {
@@ -760,9 +780,17 @@ function getCookie(name) {
 }
 
 function changeMonth(offset) {
-    const monthStart = document.getElementById('schedule-grid').getAttribute('data-month-start');
-    let currentDate = moment(monthStart).add(offset, 'months');
-
+    let monthStart = document.getElementById('schedule-grid').getAttribute('data-month-start');
+    if (!monthStart) {
+        // Default to the current month start if monthStart is missing
+        monthStart = moment().startOf('month').format('YYYY-MM-DD');
+    }
+    let currentDate = moment(monthStart);
+    if (!currentDate.isValid()) {
+        // Handle invalid date
+        currentDate = moment().startOf('month');
+    }
+    currentDate = currentDate.add(offset, 'months');
     // Always use the first day of the new month when navigating
     const newMonthStart = currentDate.startOf('month').format('YYYY-MM-DD');
     updateMonthStart(newMonthStart);
@@ -785,7 +813,10 @@ function setupMonthNavigation() {
 }
 
 function updateMonthStart(newDate) {
-    document.getElementById('schedule-grid').setAttribute('data-month-start', newDate);
+    const scheduleGrid = document.getElementById('schedule-grid');
+    scheduleGrid.setAttribute('data-month-start', newDate);
+    scheduleGrid.removeAttribute('data-date-start'); // Remove date range attributes
+    scheduleGrid.removeAttribute('data-date-end');
     document.getElementById('month-select').value = newDate;  // Update the dropdown
     fetchAndRenderSchedule();  // Fetch and display the schedule for the full weeks
 }
@@ -832,3 +863,170 @@ function updateMonthSelection() {
     }
 }
 
+//Toolbar js
+function initializeDateRangePicker() {
+       const dateFilterButton = document.getElementById('date-filter-button');
+       const dateRangePickerContainer = document.getElementById('date-range-picker-container');
+        const dateRangePickerInput = document.getElementById('date-range-picker');
+    
+       dateFilterButton.addEventListener('click', function(event) {
+           event.stopPropagation();
+           dateRangePickerContainer.classList.toggle('hidden');
+    
+           // Position the container below the button
+           const rect = dateFilterButton.getBoundingClientRect();
+           let top = rect.bottom + window.scrollY;
+           let left = rect.left + window.scrollX;
+    
+           // Adjust position if the container goes off-screen
+           const containerWidth = dateRangePickerContainer.offsetWidth;
+           if (left + containerWidth > window.innerWidth) {
+               left = window.innerWidth - containerWidth - 10; // Adjust with some padding
+           }
+    
+           dateRangePickerContainer.style.top = `${top}px`;
+          dateRangePickerContainer.style.left = `${left}px`;
+       });
+    
+      // Close the date range picker when clicking outside
+      document.addEventListener('click', function(event) {
+           if (!dateRangePickerContainer.contains(event.target) && !dateFilterButton.contains(event.target)) {
+               dateRangePickerContainer.classList.add('hidden');
+           }
+       });
+    
+        // Initialize flatpickr
+        flatpickr.localize(flatpickr.l10ns.hr);
+    
+        flatpickr(dateRangePickerInput, {
+            mode: 'range',
+            dateFormat: 'Y-m-d',
+            onClose: function(selectedDates) {
+                if (selectedDates.length === 2) {
+                    const [startDate, endDate] = selectedDates;
+                    handleDateRangeSelection(startDate, endDate);
+    
+                    // Close the date range picker using Alpine.js
+                    // We can dispatch an event or manipulate Alpine's 'open' variable
+                    // For simplicity, we can dispatch a custom event
+                    document.dispatchEvent(new CustomEvent('closeDatePicker'));
+                }
+            }
+        });
+    }
+    
+
+
+
+function handleDateRangeSelection(startDate, endDate) {
+    // Convert dates to strings in 'YYYY-MM-DD' format
+    const startStr = moment(startDate).format('YYYY-MM-DD');
+    const endStr = moment(endDate).format('YYYY-MM-DD');
+
+    // Update the schedule grid to display the selected date range
+    updateDateRange(startStr, endStr);
+}
+
+function updateDateRange(startStr, endStr) {
+    const scheduleGrid = document.getElementById('schedule-grid');
+    // Update the data attributes to store the new date range
+    scheduleGrid.setAttribute('data-date-start', startStr);
+    scheduleGrid.setAttribute('data-date-end', endStr);
+    scheduleGrid.removeAttribute('data-month-start'); // Remove month start attribute
+    // Fetch and render the schedule for the new date range
+    fetchAndRenderSchedule();
+}
+
+
+function initializeFilterOptions() {
+    const filterButton = document.getElementById('filter-button');
+    const filterOptionsContainer = document.getElementById('filter-options-container');
+
+    filterButton.addEventListener('click', function(event) {
+        event.stopPropagation();
+        filterOptionsContainer.classList.toggle('hidden');
+
+        // Position the container below the button
+        const rect = filterButton.getBoundingClientRect();
+        let top = rect.bottom + window.scrollY;
+        let left = rect.left + window.scrollX;
+
+        // Adjust position if the container goes off-screen
+        const containerWidth = filterOptionsContainer.offsetWidth;
+        if (left + containerWidth > window.innerWidth) {
+            left = window.innerWidth - containerWidth - 10; // Adjust with some padding
+            // If left becomes negative, reset to 10px
+            if (left < 10) left = 10;
+        }
+
+        filterOptionsContainer.style.top = `${top}px`;
+        filterOptionsContainer.style.left = `${left}px`;
+    });
+
+    // Close the filter options when clicking outside
+    document.addEventListener('click', function(event) {
+        if (!filterOptionsContainer.contains(event.target) && !filterButton.contains(event.target)) {
+            filterOptionsContainer.classList.add('hidden');
+        }
+    });
+
+    const applyFiltersButton = document.getElementById('apply-filters-button');
+    applyFiltersButton.addEventListener('click', function() {
+        applyFilters();
+        filterOptionsContainer.classList.add('hidden');
+    });
+}
+
+
+
+
+
+function applyFilters() {
+    // Get selected employee groups
+    const employeeGroupCheckboxes = document.querySelectorAll('.employee-group-filter');
+    const selectedGroups = [];
+    employeeGroupCheckboxes.forEach(checkbox => {
+        if (checkbox.checked) {
+            selectedGroups.push(checkbox.value);
+        }
+    });
+
+    // Get selected shift types
+    const shiftTypeCheckboxes = document.querySelectorAll('.shift-type-filter');
+    const selectedShiftTypeIds = [];
+    shiftTypeCheckboxes.forEach(checkbox => {
+        if (checkbox.checked) {
+            selectedShiftTypeIds.push(checkbox.value);
+        }
+    });
+
+    // Filter the schedule grid accordingly
+    filterScheduleGrid(selectedGroups, selectedShiftTypeIds);
+}
+
+function filterScheduleGrid(selectedGroups, selectedShiftTypeIds) {
+    // Convert selectedShiftTypeIds to strings for consistent comparison
+    const selectedShiftTypeIdsStr = selectedShiftTypeIds.map(id => id.toString());
+
+    // Show or hide employee blocks based on selected groups
+    const employeeBlocks = document.querySelectorAll('.employee-block');
+    employeeBlocks.forEach(block => {
+        const group = block.getAttribute('data-group');
+        if (selectedGroups.includes(group)) {
+            block.style.display = '';
+        } else {
+            block.style.display = 'none';
+        }
+    });
+
+    // Show or hide shift type columns based on selected shift types
+    const shiftTypeColumns = document.querySelectorAll('.shift-type-column');
+    shiftTypeColumns.forEach(column => {
+        const shiftTypeId = column.getAttribute('data-shift-type-id');
+        if (selectedShiftTypeIdsStr.includes(shiftTypeId)) {
+            column.style.display = '';
+        } else {
+            column.style.display = 'none';
+        }
+    });
+}

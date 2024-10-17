@@ -29,7 +29,7 @@
         <!-- Shift Columns -->
         {% for shift_type in reordered_shift_types %}
         <td
-          class="items-center justify-center px-2 py-1 border min-w-[120px] dropzone bg-white rounded border-gray-400 min-h-[40px]"
+          class="items-center justify-center px-2 py-1 border min-w-[120px] dropzone bg-white rounded border-gray-400 min-h-[40px] shift-type-column shift-type-column-{{ shift_type.id }}"
           data-shift-type-id="{{ shift_type.id }}" data-date="{{ day|date:'Y-m-d' }}">
           {% with day_str=day|date:"Y-m-d" %}
           {% with employees_list=schedule_data|get_item:day_str|get_item:shift_type.id %}

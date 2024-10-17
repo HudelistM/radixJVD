@@ -136,25 +136,46 @@ def get_last_day_of_week(date):
     day_idx = date.weekday()
     return date + timedelta(days=(6 - day_idx))
 
+def is_night_shift_start(wd):
+    if not wd.shift_type.isNightShift:
+        return False
+    if wd.shift_type.name == 'Priprema od 19:00':
+        # Check if it's the starting day based on on_call_hours
+        if wd.on_call_hours == 5:
+            return True  # Starting day
+        else:
+            return False  # Next day
+    # Existing logic for other night shifts
+    if wd.day_hours >= 3:
+        return True
+    else:
+        return False
+
 
 @login_required
 def schedule_view(request):
+
+    employees = Employee.objects.all().order_by('group', 'role_number')
+    employee_groups = employees.values_list('group', flat=True).distinct()
+    date_start_str = request.GET.get('date_start')
+    date_end_str = request.GET.get('date_end')
     month_start_str = request.GET.get('month_start')
-    print("Month start string received:", month_start_str)
 
-    if month_start_str:
-        month_start = datetime.strptime(month_start_str, '%Y-%m-%d').date()
+    if date_start_str and date_end_str:
+        date_start = datetime.strptime(date_start_str, '%Y-%m-%d').date()
+        date_end = datetime.strptime(date_end_str, '%Y-%m-%d').date()
     else:
-        today = date.today()
-        month_start = date(today.year, today.month, 1)
-
-    # Get the first and last day of the month
-    first_day_of_month = month_start.replace(day=1)
-    last_day_of_month = month_start.replace(day=calendar.monthrange(month_start.year, month_start.month)[1])
+        if month_start_str:
+            date_start = datetime.strptime(month_start_str, '%Y-%m-%d').date()
+        else:
+            today = date.today()
+            date_start = date(today.year, today.month, 1)
+        # Set date_end to the last day of the month
+        date_end = date_start.replace(day=calendar.monthrange(date_start.year, date_start.month)[1])
 
     # Extend to cover the entire week of both the first and last day
-    week_start_date = get_first_day_of_week(first_day_of_month)  # Monday of the first week
-    week_end_date = get_last_day_of_week(last_day_of_month)  # Sunday of the last week
+    week_start_date = get_first_day_of_week(date_start)  # Monday of the first week
+    week_end_date = get_last_day_of_week(date_end)  # Sunday of the last week
 
     # Create a list of dates from the first Monday to the last Sunday
     num_days = (week_end_date - week_start_date).days + 1
@@ -164,13 +185,23 @@ def schedule_view(request):
 
     # Prepare schedule data using WorkDay
     schedule_data = {}
-    workdays = WorkDay.objects.filter(date__in=month_dates).select_related('employee', 'shift_type')
+    workdays = WorkDay.objects.filter(date__range=[week_start_date, week_end_date]).select_related('employee', 'shift_type')
+    
 
     for day in month_dates:
         day_key = day.strftime('%Y-%m-%d')
         schedule_data[day_key] = {}
         for shift_type in shift_types:
-            employees = [wd.employee for wd in workdays if wd.date == day and wd.shift_type == shift_type]
+            employees = []
+            for wd in workdays:
+                if wd.date == day and wd.shift_type == shift_type:
+                    include_wd = True
+                    if shift_type.isNightShift:
+                        # Use the helper function to determine if this is the start of a night shift
+                        if not is_night_shift_start(wd):
+                            include_wd = False
+                    if include_wd:
+                        employees.append(wd.employee)
             schedule_data[day_key][shift_type.id] = employees if employees else None
 
     # Fetch employees and sort them by group and role_number
@@ -182,7 +213,10 @@ def schedule_view(request):
         'schedule_data': schedule_data,
         'employees': employees,  # Pass sorted employees to the template
         'schedule_view': True,
-        'current_month_start': month_start.strftime('%Y-%m-%d'),
+        'current_month_start': date_start.strftime('%Y-%m-%d'),
+        'date_start': date_start.strftime('%Y-%m-%d'),
+        'date_end': date_end.strftime('%Y-%m-%d'),
+        'employee_groups': employee_groups,
     }
 
     if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
@@ -192,32 +226,48 @@ def schedule_view(request):
 
 @require_http_methods(["GET"])
 def api_schedule_data(request):
+    date_start_str = request.GET.get('date_start')
+    date_end_str = request.GET.get('date_end')
     month_start_fetch = request.GET.get('month_start')
     month_end_fetch = request.GET.get('month_end')
 
-    if not month_start_fetch or not month_end_fetch:
+    if date_start_str and date_end_str:
+        date_start = datetime.strptime(date_start_str, '%Y-%m-%d').date()
+        date_end = datetime.strptime(date_end_str, '%Y-%m-%d').date()
+    elif month_start_fetch and month_end_fetch:
+        date_start = datetime.strptime(month_start_fetch, '%Y-%m-%d').date()
+        date_end = datetime.strptime(month_end_fetch, '%Y-%m-%d').date()
+    else:
         return JsonResponse({'error': 'Invalid or missing date parameters'}, status=400)
 
-    month_start = datetime.strptime(month_start_fetch, '%Y-%m-%d').date()
-    month_end = datetime.strptime(month_end_fetch, '%Y-%m-%d').date()
-
     workdays = WorkDay.objects.filter(
-        date__range=[month_start, month_end]
+        date__range=[date_start, date_end]
     ).select_related('employee', 'shift_type')
 
     schedule_dict = defaultdict(lambda: defaultdict(list))
 
     for wd in workdays:
-        key = (wd.date.strftime('%Y-%m-%d'), wd.shift_type.id)
-        schedule_dict[key]['date'] = wd.date.strftime('%Y-%m-%d')
-        schedule_dict[key]['shift_type_id'] = wd.shift_type.id
-        schedule_dict[key]['employees'].append({
-            'id': wd.employee.id,
-            'name': wd.employee.name,
-            'surname': wd.employee.surname,
-            'group': wd.employee.group,
-            'role_number': wd.employee.role_number
-        })
+        include_wd = True
+        if wd.shift_type.isNightShift:
+            # Use the helper function to determine if this is the start of a night shift
+            if not is_night_shift_start(wd):
+                include_wd = False
+        if include_wd:
+            date_str = wd.date.strftime('%Y-%m-%d')
+            shift_type_id = wd.shift_type.id
+            key = (date_str, shift_type_id)
+
+            schedule_dict[key]['date'] = date_str
+            schedule_dict[key]['shift_type_id'] = shift_type_id
+            if 'employees' not in schedule_dict[key]:
+                schedule_dict[key]['employees'] = []
+            schedule_dict[key]['employees'].append({
+                'id': wd.employee.id,
+                'name': wd.employee.name,
+                'surname': wd.employee.surname,
+                'group': wd.employee.group,
+                'role_number': wd.employee.role_number
+            })
 
     schedule_list = list(schedule_dict.values())
     return JsonResponse(schedule_list, safe=False)
