@@ -30,6 +30,23 @@ LOGIN_URL = 'login'
 LOGIN_REDIRECT_URL = 'landingPage'
 LOGOUT_REDIRECT_URL = 'login'
 
+#Session settings
+
+# Session expires when the browser is closed
+SESSION_EXPIRE_AT_BROWSER_CLOSE = True
+
+# Set a timeout for inactive sessions (e.g., 30 minutes)
+SESSION_COOKIE_AGE = 1800  # 30 minutes expressed in seconds
+
+# Use secure cookies (requires HTTPS)
+SESSION_COOKIE_SECURE = True
+
+# Prevent JavaScript access to session cookies
+SESSION_COOKIE_HTTPONLY = True
+
+# Set the same-site policy for session cookies
+SESSION_COOKIE_SAMESITE = 'Lax'  # Options: 'Lax', 'Strict', 'None'
+
 # Application definition
 
 INSTALLED_APPS = [
@@ -92,9 +109,6 @@ DATABASES = {
 # https://docs.djangoproject.com/en/5.0/ref/settings/#auth-password-validators
 
 AUTH_PASSWORD_VALIDATORS = [
-    {
-        'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
-    },
     {
         'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
     },
