@@ -19,12 +19,12 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/5.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-s2)7)h(bzr7khqb$th@!qcgy08^coq(ts2ypaf4wwwz5$6r!9_'
+SECRET_KEY = 'django-insecure-s2)7)h(bzr7khqb$th@!qcgy08^coq(ts2ypaf4wwwz5$6r!9_'  
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = False
 
-ALLOWED_HOSTS = ['165.232.126.170']
+ALLOWED_HOSTS = ['104.248.37.6'] 
 
 LOGIN_URL = 'login'
 LOGIN_REDIRECT_URL = 'landingPage'
@@ -80,14 +80,15 @@ WSGI_APPLICATION = 'JVD_app.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.0/ref/settings/#databases
 
+
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'django',
-        'USER': 'django',
-        'PASSWORD': 'd52248b65c677eec482e04c0a3483493',
+        'NAME': 'jvp_d1',  # Your database name
+        'USER': 'jvp_d1_admin',  # Your database user
+        'PASSWORD': 'unco?MItYpSCARICO12!d',  # Your database password
         'HOST': 'localhost',
-        'PORT': '',  # Default postgres port is used if blank
+        'PORT': '',  # Default port
     }
 }
 
