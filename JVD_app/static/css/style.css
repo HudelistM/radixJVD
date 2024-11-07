@@ -223,3 +223,30 @@
 #context-menu li:last-child {
   border-bottom: none;
 }
+
+/* Highlighted cell */
+.highlighted-cell {
+  border: 2px solid blue;
+}
+
+/* Highlighted column */
+.highlighted-column {
+  background-color: #e0f7fa; /* Light cyan background */
+}
+
+/* Highlighted row */
+.highlighted-row {
+  background-color: #f1f8e9; /* Light green background */
+}
+
+.swal-confirm-button {
+  background-color: blue !important;
+  color: white !important;
+  font-size: 16px !important;
+  padding: 8px 16px !important;
+  border-radius: 4px !important;
+}
+
+.swal-confirm-button:hover {
+  background-color: darkblue !important;
+}

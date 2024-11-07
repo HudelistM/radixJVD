@@ -8,10 +8,20 @@ class Employee(models.Model):
     role = models.CharField(max_length=100)
     role_number = models.IntegerField(null=True, blank=True)
     group = models.CharField(max_length=100)
-    
+    total_vacation_hours = models.IntegerField(default=0)  # New field for assigned vacation hours
+
     def __str__(self):
-    # Customize this to display information that helps identify the employee
         return f"{self.name} {self.surname} ({self.role})"
+
+    def calculate_used_vacation_hours(self):
+        total_used_hours = WorkDay.objects.filter(
+            employee=self,
+            vacation_hours__gt=0
+        ).aggregate(total=Sum('vacation_hours'))['total'] or 0
+        return total_used_hours
+
+    def remaining_vacation_hours(self):
+        return self.total_vacation_hours - self.calculate_used_vacation_hours()
     
     def calculate_monthly_hours(self, month, year):
         work_days = self.workday_set.filter(date__year=year, date__month=month)
