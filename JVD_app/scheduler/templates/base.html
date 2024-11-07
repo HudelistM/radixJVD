@@ -16,6 +16,8 @@
   <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
   <!-- Flatpickr Croatian Locale -->
   <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/hr.js"></script>
+  <!-- SweetAlert CSS -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
 
 </head>
 
@@ -78,7 +80,6 @@
           </form>
           {% else %}
           <a href="{% url 'login' %}" class="py-5 px-3">Prijava</a>
-          <a href="{% url 'register' %}" class="py-5 px-3 bg-white hover:bg-red-400 text-yellow-900 rounded transition duration-300">Registracija</a>
           {% endif %}
         </div>
       </div>
@@ -94,7 +95,6 @@
       </form>
       {% else %}
       <a href="{% url 'login' %}" class="block py-2 px-4 test-sm hover:bg-gray-300">Prijava</a>
-      <a href="{% url 'register' %}" class="block py-2 px-4 test-sm hover:bg-gray-300">Registracija</a>
       {% endif %}
     </div>
   </nav>

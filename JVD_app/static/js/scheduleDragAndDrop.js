@@ -25,29 +25,32 @@ document.addEventListener('alpine:init', () => {
             this.updateEmployeeLock();
         },
 
+        // Adjust the updateEmployeeLock function
         updateEmployeeLock() {
             console.log('Updating employee lock status');
             
-            // Unlock all employee blocks in both the list and schedule
-            document.querySelectorAll('.employee-block').forEach(block => {
+            // Unlock all employee blocks in the employee list
+            document.querySelectorAll('#employees-list .employee-block').forEach(block => {
                 block.classList.remove('employee-locked');
                 block.setAttribute('draggable', 'true');
             });
-        
+
             if (!this.featureToggle || this.selectedRow === null) return;
-        
+
             // Get selected row (schedule table row)
             const selectedRow = document.querySelectorAll('tbody tr')[this.selectedRow];
             let employeeCount = {};
-        
+
             // Mark employees that are already assigned in the selected row
             selectedRow.querySelectorAll('.employee-block').forEach(block => {
                 const employeeId = block.getAttribute('data-employee-id');
                 employeeCount[employeeId] = (employeeCount[employeeId] || 0) + 1;
             });
-        
-            // Lock employees both in the list and in the schedule table
-            document.querySelectorAll('.employee-block').forEach(block => {
+
+            // Lock employees in the employee list only
+            const employeeListBlocks = document.querySelectorAll('#employees-list .employee-block');
+
+            employeeListBlocks.forEach(block => {
                 const employeeId = block.getAttribute('data-employee-id');
                 if (employeeCount[employeeId]) {
                     block.classList.add('employee-locked');
@@ -55,6 +58,7 @@ document.addEventListener('alpine:init', () => {
                 }
             });
         },
+
         
 
         setFeatureToggle(isChecked) {
@@ -137,15 +141,28 @@ function initDragAndDrop() {
 
     drake = dragula(containers, {
         copy: (el, source) => el.classList.contains('employee-block') && employeeContainers.includes(source),
-        accepts: (el, target) => target.classList.contains('dropzone') || target === deleteZone,
+        accepts: (el, target) => {
+            if (target.classList.contains('dropzone') || target === deleteZone) {
+                if (target.dataset.locked === 'true') {
+                    return false; // Prevent dropping into locked columns
+                }
+                return true;
+            }
+            return false;
+        },
         removeOnSpill: false,
         revertOnSpill: true,
         mirrorContainer: document.body,
-        moves: (el) => {
+        moves: (el, source) => {
+            // Prevent dragging from locked columns
+            if (source.dataset.locked === 'true') {
+                return false;
+            }
             // Prevent dragging locked employees
             return !el.classList.contains('employee-locked') && el.classList.contains('employee-block');
         }
     });
+    
 
     drake.on('drop', function(el, target, source) {
         if (!target) return;
@@ -241,19 +258,27 @@ function updateSchedule(employeeId, shiftTypeId, date, action, originalDate, ori
         },
         body: requestBody,
     })
-    .then(response => {
-        if (!response.ok) {
-            throw new Error('Network response was not ok: ' + response.statusText);
+    .then(response => response.json().then(data => ({status: response.status, data: data})))
+    .then(({status, data}) => {
+        if (status === 200) {
+            console.log('Success:', data);
+        } else {
+            console.error('Error:', data);
+            showAlert(data.message || 'Greška prilikom ažuriranja rasporeda');
+            // Remove the employee block that was added
+            const elementId = `employee-block-${employeeId}-${date}-${shiftTypeId}`;
+            const element = document.getElementById(elementId);
+            if (element) {
+                element.remove();
+            }
         }
-        return response.json();
-    })
-    .then(data => {
-        console.log('Success:', data);
     })
     .catch(error => {
         console.error('Error:', error);
+        showAlert('Greška prilikom ažuriranja rasporeda');
     });
 }
+
 
 function fetchAndRenderSchedule() {
     const scheduleGrid = document.getElementById('schedule-grid');
@@ -353,6 +378,20 @@ function createEmployeeBlock(employee, date, shiftTypeId) {
     div.appendChild(nameSpan);
 
     return div;
+}
+
+function showAlert(message) {
+    Swal.fire({
+        icon: 'error',
+        title: 'Upozorenje',
+        text: message,
+        confirmButtonText: 'U redu',
+        iconColor: 'red',
+        buttonsStyling: false,
+        customClass: {
+            confirmButton: 'swal-confirm-button',
+        },
+    });
 }
 
 

@@ -7,23 +7,30 @@
 <div class="container mx-auto p-4">
     <h1 class="text-3xl font-bold mb-6">Profil Radnika</h1>
 
-    <!-- Personal Information -->
-    <div class="mb-6 p-6 bg-white rounded-lg shadow-md">
-        <h2 class="text-2xl font-semibold mb-4">Osobni Podaci</h2>
-        <p class="text-lg mb-2"><strong>Ime:</strong> {{ employee.name }} {{ employee.surname }}</p>
-        <p class="text-lg mb-2"><strong>Pozicija:</strong> {{ employee.role }}</p>
-        <p class="text-lg mb-2"><strong>Grupa:</strong>
-            {% if employee.group == '1' %} Ured
-            {% elif employee.group == '2' %} Crvena smjena
-            {% elif employee.group == '3' %} Zelena smjena
-            {% elif employee.group == '4' %} Plava smjena
-            {% elif employee.group == '5' %} Crna smjena
-            {% elif employee.group == '6' %} Ljubičasta smjena
-            {% else %} Nepoznata Grupa
-            {% endif %}
-        </p>
-        <p class="text-lg"><strong>Slobodni dani po izboru:</strong> {{ free_days_choice_count }}/2</p>
+<!-- Personal Information -->
+<div x-data="{ openVacationHoursModal: false }" class="mb-6 p-6 bg-white rounded-lg shadow-md">
+    <h2 class="text-2xl font-semibold mb-4">Osobni Podaci</h2>
+    <p class="text-lg mb-2"><strong>Ime:</strong> {{ employee.name }} {{ employee.surname }}</p>
+    <p class="text-lg mb-2"><strong>Pozicija:</strong> {{ employee.role }}</p>
+    <p class="text-lg mb-2"><strong>Grupa:</strong>
+        {% if employee.group == '1' %} Ured
+        {% elif employee.group == '2' %} Crvena smjena
+        {% elif employee.group == '3' %} Zelena smjena
+        {% elif employee.group == '4' %} Plava smjena
+        {% elif employee.group == '5' %} Crna smjena
+        {% elif employee.group == '6' %} Ljubičasta smjena
+        {% else %} Nepoznata Grupa
+        {% endif %}
+    </p>
+    <p class="text-lg"><strong>Slobodni dani po izboru:</strong> {{ free_days_choice_count }}/2</p>
+    <!-- Display total vacation hours with option to edit -->
+    <div class="mt-4">
+        <p class="text-lg"><strong>Ukupno godišnjih sati:</strong> {{ employee.total_vacation_hours }}</p>
+        <button @click="openVacationHoursModal = true"
+            class="mt-2 px-4 py-2 bg-blue-500 hover:bg-blue-700 text-white font-bold rounded-lg shadow">Uredi
+            Godišnje Sate</button>
     </div>
+</div>
 
     <!-- Monthly Hours Table -->
     <div class="mt-6 p-6 bg-white rounded-lg shadow-md">
@@ -43,113 +50,184 @@
             </button>
         </div>
         <div class="overflow-x-auto">
-            <table class="min-w-full divide-y divide-gray-200">
+            <table class="min-w-full divide-y divide-gray-200" style="table-layout: fixed;">
                 <thead>
                     <tr>
-                        <th
-                            class="px-2 py-1 bg-gray-100 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <!-- Delete Column -->
+                        <th class="px-2 py-1 bg-gray-100" style="width: 40px;"></th>
+                        <!-- Date Column -->
+                        <th class="px-2 py-1 bg-gray-100 text-center text-xs font-medium text-gray-500 uppercase tracking-wider"
+                            style="width: 80px;">
                             Datum
                         </th>
+                        <!-- Other header cells with fixed widths -->
                         <th data-field="day_hours"
-                            class="px-2 py-1 bg-gray-100 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            class="px-2 py-1 bg-gray-100 text-center text-xs font-medium text-gray-500 uppercase tracking-wider"
+                            style="width: 60px;">
                             Dnevni
                         </th>
                         <th data-field="night_hours"
-                            class="px-2 py-1 bg-gray-100 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            class="px-2 py-1 bg-gray-100 text-center text-xs font-medium text-gray-500 uppercase tracking-wider"
+                            style="width: 60px;">
                             Noćni
                         </th>
                         <th data-field="overtime_hours"
-                            class="px-2 py-1 bg-gray-100 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            class="px-2 py-1 bg-gray-100 text-center text-xs font-medium text-gray-500 uppercase tracking-wider"
+                            style="width: 70px;">
                             Prek. Sati
                         </th>
                         <th data-field="overtime_service"
-                            class="px-2 py-1 bg-gray-100 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            class="px-2 py-1 bg-gray-100 text-center text-xs font-medium text-gray-500 uppercase tracking-wider"
+                            style="width: 70px;">
                             Prek. Usluga
                         </th>
                         <th data-field="overtime_excess_fond"
-                            class="px-2 py-1 bg-gray-100 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            class="px-2 py-1 bg-gray-100 text-center text-xs font-medium text-gray-500 uppercase tracking-wider"
+                            style="width: 70px;">
                             Prek. Višak
                         </th>
                         <th data-field="overtime_free_day"
-                            class="px-2 py-1 bg-gray-100 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            class="px-2 py-1 bg-gray-100 text-center text-xs font-medium text-gray-500 uppercase tracking-wider"
+                            style="width: 70px;">
                             Prek. Slob. Dan
                         </th>
                         <th data-field="overtime_free_day_service"
-                            class="px-2 py-1 bg-gray-100 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            class="px-2 py-1 bg-gray-100 text-center text-xs font-medium text-gray-500 uppercase tracking-wider"
+                            style="width: 70px;">
                             Prek. Slob. Usl.
                         </th>
                         <th data-field="holiday_hours"
-                            class="px-2 py-1 bg-gray-100 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            class="px-2 py-1 bg-gray-100 text-center text-xs font-medium text-gray-500 uppercase tracking-wider"
+                            style="width: 70px;">
                             Blagdani
                         </th>
                         <th data-field="vacation_hours"
-                            class="px-2 py-1 bg-green-100 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            class="px-2 py-1 bg-green-100 text-center text-xs font-medium text-gray-500 uppercase tracking-wider"
+                            style="width: 70px;">
                             Godišnji
                         </th>
                         <th data-field="sick_leave_hours"
-                            class="px-2 py-1 bg-red-100 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            class="px-2 py-1 bg-red-100 text-center text-xs font-medium text-gray-500 uppercase tracking-wider"
+                            style="width: 70px;">
                             Bolovanje
                         </th>
                         <th data-field="article39_hours"
-                            class="px-2 py-1 bg-gray-100 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            class="px-2 py-1 bg-gray-100 text-center text-xs font-medium text-gray-500 uppercase tracking-wider"
+                            style="width: 70px;">
                             Članak 39
                         </th>
                         <th data-field="on_call_hours"
-                            class="px-2 py-1 bg-gray-100 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            class="px-2 py-1 bg-gray-100 text-center text-xs font-medium text-gray-500 uppercase tracking-wider"
+                            style="width: 70px;">
                             Priprema
                         </th>
                     </tr>
                 </thead>
                 <tbody id="hours-table-body">
                     {% for day in month_dates %}
-                    {% with wd=workday_dict|dict_get:day %}
-                    <tr data-date="{{ day|date:" Y-m-d" }}">
-                        <td class="border px-2 py-1">
-                            <strong>{{ day|croatian_day_initial }}</strong> {{ day|date:"d.m.Y" }}
-                        </td>
-                        <td class="border px-2 py-1 editable-cell" data-field="day_hours">
-                            {{ wd.day_hours|default_if_none:'' }}
-                        </td>
-                        <td class="border px-2 py-1 editable-cell" data-field="night_hours">
-                            {{ wd.night_hours|default_if_none:'' }}
-                        </td>
-                        <td class="border px-2 py-1 editable-cell" data-field="overtime_hours">
-                            {{ wd.overtime_hours|default_if_none:'' }}
-                        </td>
-                        <td class="border px-2 py-1 editable-cell" data-field="overtime_service">
-                            {{ wd.overtime_service|default_if_none:'' }}
-                        </td>
-                        <td class="border px-2 py-1 editable-cell" data-field="overtime_excess_fond">
-                            {{ wd.overtime_excess_fond|default_if_none:'' }}
-                        </td>
-                        <td class="border px-2 py-1 editable-cell" data-field="overtime_free_day">
-                            {{ wd.overtime_free_day|default_if_none:'' }}
-                        </td>
-                        <td class="border px-2 py-1 editable-cell" data-field="overtime_free_day_service">
-                            {{ wd.overtime_free_day_service|default_if_none:'' }}
-                        </td>
-                        <td class="border px-2 py-1 editable-cell" data-field="holiday_hours">
-                            {{ wd.holiday_hours|default_if_none:'' }}
-                        </td>
-                        <td class="border px-2 py-1 editable-cell bg-green-100" data-field="vacation_hours">
-                            {{ wd.vacation_hours|default_if_none:'' }}
-                        </td>
-                        <td class="border px-2 py-1 editable-cell bg-red-100" data-field="sick_leave_hours">
-                            {{ wd.sick_leave_hours|default_if_none:'' }}
-                        </td>
-                        <td class="border px-2 py-1 editable-cell" data-field="article39_hours">
-                            {{ wd.article39_hours|default_if_none:'' }}
-                        </td>
-                        <td class="border px-2 py-1 editable-cell" data-field="on_call_hours">
-                            {{ wd.on_call_hours|default_if_none:'' }}
-                        </td>
-                    </tr>
+                    {% with wds=workday_dict|dict_get:day %}
+                    {% if wds %}
+                        <!-- There are WorkDay entries for this date -->
+                        {% for wd in wds %}
+                        <tr data-date="{{ day|date:"Y-m-d" }}">
+                            <!-- Delete button -->
+                            <td class="border px-2 py-1 text-center" style="width: 40px;">
+                                <button class="remove-workday" data-date="{{ day|date:"Y-m-d" }}" data-shift-type-id="{{ wd.shift_type.id }}">
+                                    <img src="{% static 'icons/minus.svg' %}" alt="Delete" class="w-4 h-4 mx-auto">
+                                </button>
+                            </td>
+                            {% if forloop.first %}
+                            <td rowspan="{{ wds|length }}" class="border px-2 py-1" style="width: 80px;">
+                                <div class="text-center">
+                                    <strong>{{ day|croatian_day_initial }}</strong><br>
+                                    {{ day|date:"d.m.Y" }}
+                                </div>
+                            </td>
+                            {% endif %}
+                            <!-- Data cells -->
+                            <td class="border px-2 py-1 editable-cell text-center" data-field="day_hours"
+                                data-shift-type-id="{{ wd.shift_type.id }}" style="width: 60px;">
+                                {{ wd.day_hours|default_if_none:'0' }}
+                            </td>
+                            <td class="border px-2 py-1 editable-cell text-center" data-field="night_hours"
+                                data-shift-type-id="{{ wd.shift_type.id }}" style="width: 60px;">
+                                {{ wd.night_hours|default_if_none:'0' }}
+                            </td>
+                            <td class="border px-2 py-1 editable-cell text-center" data-field="overtime_hours"
+                                data-shift-type-id="{{ wd.shift_type.id }}" style="width: 70px;">
+                                {{ wd.overtime_hours|default_if_none:'0' }}
+                            </td>
+                            <td class="border px-2 py-1 editable-cell text-center" data-field="overtime_service"
+                                data-shift-type-id="{{ wd.shift_type.id }}" style="width: 70px;">
+                                {{ wd.overtime_service|default_if_none:'0' }}
+                            </td>
+                            <td class="border px-2 py-1 editable-cell text-center" data-field="overtime_excess_fond"
+                                data-shift-type-id="{{ wd.shift_type.id }}" style="width: 70px;">
+                                {{ wd.overtime_excess_fond|default_if_none:'0' }}
+                            </td>
+                            <td class="border px-2 py-1 editable-cell text-center" data-field="overtime_free_day"
+                                data-shift-type-id="{{ wd.shift_type.id }}" style="width: 70px;">
+                                {{ wd.overtime_free_day|default_if_none:'0' }}
+                            </td>
+                            <td class="border px-2 py-1 editable-cell text-center" data-field="overtime_free_day_service"
+                                data-shift-type-id="{{ wd.shift_type.id }}" style="width: 70px;">
+                                {{ wd.overtime_free_day_service|default_if_none:'0' }}
+                            </td>
+                            <td class="border px-2 py-1 editable-cell text-center" data-field="holiday_hours"
+                                data-shift-type-id="{{ wd.shift_type.id }}" style="width: 70px;">
+                                {{ wd.holiday_hours|default_if_none:'0' }}
+                            </td>
+                            <td class="border px-2 py-1 editable-cell bg-green-100 text-center" data-field="vacation_hours"
+                                data-shift-type-id="{{ wd.shift_type.id }}" style="width: 70px;">
+                                {{ wd.vacation_hours|default_if_none:'0' }}
+                            </td>
+                            <td class="border px-2 py-1 editable-cell bg-red-100 text-center" data-field="sick_leave_hours"
+                                data-shift-type-id="{{ wd.shift_type.id }}" style="width: 70px;">
+                                {{ wd.sick_leave_hours|default_if_none:'0' }}
+                            </td>
+                            <td class="border px-2 py-1 editable-cell text-center" data-field="article39_hours"
+                                data-shift-type-id="{{ wd.shift_type.id }}" style="width: 70px;">
+                                {{ wd.article39_hours|default_if_none:'0' }}
+                            </td>
+                            <td class="border px-2 py-1 editable-cell text-center" data-field="on_call_hours"
+                                data-shift-type-id="{{ wd.shift_type.id }}" style="width: 70px;">
+                                {{ wd.on_call_hours|default_if_none:'0' }}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                        {% else %}
+                        <!-- No WorkDay entries for this date -->
+                        <tr data-date="{{ day|date:"Y-m-d" }}">
+                            <!-- Empty Delete Column -->
+                            <td class="border px-2 py-1" style="width: 40px;"></td>
+                            <td class="border px-2 py-1" style="width: 80px;">
+                                <div class="text-center">
+                                    <strong>{{ day|croatian_day_initial }}</strong><br>
+                                    {{ day|date:"d.m.Y" }}
+                                </div>
+                            </td>
+                            <!-- Empty data cells with zeros -->
+                            <td class="border px-2 py-1 text-center" data-field="day_hours" style="width: 60px;">0</td>
+                            <td class="border px-2 py-1 text-center" data-field="night_hours" style="width: 60px;">0</td>
+                            <td class="border px-2 py-1 text-center" data-field="overtime_hours" style="width: 70px;">0</td>
+                            <td class="border px-2 py-1 text-center" data-field="overtime_service" style="width: 70px;">0</td>
+                            <td class="border px-2 py-1 text-center" data-field="overtime_excess_fond" style="width: 70px;">0</td>
+                            <td class="border px-2 py-1 text-center" data-field="overtime_free_day" style="width: 70px;">0</td>
+                            <td class="border px-2 py-1 text-center" data-field="overtime_free_day_service" style="width: 70px;">0</td>
+                            <td class="border px-2 py-1 text-center" data-field="holiday_hours" style="width: 70px;">0</td>
+                            <td class="border px-2 py-1 text-center bg-green-100" data-field="vacation_hours" style="width: 70px;">0</td>
+                            <td class="border px-2 py-1 text-center bg-red-100" data-field="sick_leave_hours" style="width: 70px;">0</td>
+                            <td class="border px-2 py-1 text-center" data-field="article39_hours" style="width: 70px;">0</td>
+                            <td class="border px-2 py-1 text-center" data-field="on_call_hours" style="width: 70px;">0</td>
+                        </tr>
+                    {% endif %}
                     {% endwith %}
                     {% endfor %}
                 </tbody>
             </table>
         </div>
     </div>
+
 
 
 
@@ -280,133 +358,474 @@
             </div>
         </div>
 
-        <!-- Godišnji Odmor Block -->
-        <div x-data="{ open: false }" class="p-6 bg-white rounded-lg shadow-md">
-            <h2 class="text-2xl font-semibold mb-4">Godišnji Odmor</h2>
-            <div @click="open = !open"
-                class="text-xl font-semibold text-black py-2 hover:bg-gray-300 cursor-pointer rounded-lg flex justify-between items-center">
-                <span>Dodaj Godišnji Odmor</span>
-                <img :class="{ 'rotate-180': open }" class="transition-transform duration-200"
-                    src="{% static 'icons/down_arrow.svg' %}" alt="Arrow">
+       <!-- Godišnji Odmor Block -->
+<div x-data="{ open: false }" class="p-6 bg-white rounded-lg shadow-md">
+    <h2 class="text-2xl font-semibold mb-4">Godišnji Odmor</h2>
+    <div @click="open = !open"
+        class="text-xl font-semibold text-black py-2 hover:bg-gray-300 cursor-pointer rounded-lg flex justify-between items-center">
+        <span>Dodaj Godišnji Odmor</span>
+        <img :class="{ 'rotate-180': open }" class="transition-transform duration-200"
+            src="{% static 'icons/down_arrow.svg' %}" alt="Arrow">
+    </div>
+    <div x-show="open" x-transition>
+        <form method="POST" action="{% url 'handle_vacation' employee.id %}" class="mt-4">
+            {% csrf_token %}
+            <div class="mb-4">
+                <label for="start_date" class="block text-sm font-medium text-gray-700">Početni datum:</label>
+                <input type="date" name="start_date" id="start_date"
+                    class="mt-1 block w-full py-2 px-3 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-red-500 focus:border-red-500 sm:text-sm"
+                    required>
             </div>
-            <div x-show="open" x-transition>
-                <form method="POST" action="{% url 'handle_vacation' employee.id %}" class="mt-4">
-                    {% csrf_token %}
-                    <div class="mb-4">
-                        <label for="start_date" class="block text-sm font-medium text-gray-700">Početni datum:</label>
-                        <input type="date" name="start_date" id="start_date"
-                            class="mt-1 block w-full py-2 px-3 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-red-500 focus:border-red-500 sm:text-sm"
-                            required>
-                    </div>
-                    <div class="mb-4">
-                        <label for="end_date" class="block text-sm font-medium text-gray-700">Krajnji datum:</label>
-                        <input type="date" name="end_date" id="end_date"
-                            class="mt-1 block w-full py-2 px-3 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-red-500 focus:border-red-500 sm:text-sm"
-                            required>
-                    </div>
-                    <button type="submit"
-                        class="px-4 py-2 bg-red-500 hover:bg-red-700 text-white font-bold rounded-lg shadow">Dodaj
-                        Godišnji Odmor</button>
-                </form>
+            <div class="mb-4">
+                <label for="end_date" class="block text-sm font-medium text-gray-700">Krajnji datum:</label>
+                <input type="date" name="end_date" id="end_date"
+                    class="mt-1 block w-full py-2 px-3 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-red-500 focus:border-red-500 sm:text-sm"
+                    required>
             </div>
-            <div class="mt-6">
-                <h3 class="text-xl font-semibold mb-2">Godišnji Odmori</h3>
-                <ul class="space-y-2">
-                    {% for vacation in vacations %}
-                    <li class="bg-gray-100 p-4 rounded-lg shadow flex justify-between items-center">
-                        <div>
-                            <p class="text-gray-700"><strong>Od:</strong> {{ vacation.start_date|date:"d.m.Y" }}
-                                <strong>Do:</strong> {{ vacation.end_date|date:"d.m.Y" }}
-                            </p>
-                        </div>
-                        <form method="POST" action="{% url 'delete_vacation' vacation.id %}">
-                            {% csrf_token %}
-                            <button type="submit">
-                                <img src="{% static 'icons/deleteB.svg' %}" alt="Delete"
-                                    class="h-7 w-7 mr-2 border-gray-950 rounded-md hover:bg-red-500 transition-colors duration-300 hover:shadow-md">
-                            </button>
-                        </form>
-                    </li>
-                    {% empty %}
-                    <li class="bg-gray-100 p-4 rounded-lg shadow">
-                        <p class="text-gray-700">Nema dodanih godišnjih odmora.</p>
-                    </li>
-                    {% endfor %}
-                </ul>
-            </div>
-        </div>
+            <button type="submit"
+                class="px-4 py-2 bg-red-500 hover:bg-red-700 text-white font-bold rounded-lg shadow">Dodaj
+                Godišnji Odmor</button>
+        </form>
+    </div>
+    <!-- Display total vacation hours and days -->
+    <div class="mt-4">
+        <p class="text-lg"><strong>Ukupno godišnjih sati:</strong> {{ employee.total_vacation_hours }}</p>
+        <p class="text-lg"><strong>Iskorišteni godišnji sati:</strong> {{ used_vacation_hours }}</p>
+        <p class="text-lg"><strong>Preostali godišnji sati:</strong> {{ remaining_vacation_hours }}</p>
+    </div>
+    <div class="mt-6">
+        <h3 class="text-xl font-semibold mb-2">Godišnji Odmori</h3>
+        <ul class="space-y-2">
+            {% for vacation in vacations %}
+            <li class="bg-gray-100 p-4 rounded-lg shadow flex justify-between items-center">
+                <div>
+                    <p class="text-gray-700">
+                        <strong>Od:</strong> {{ vacation.start_date|date:"d.m.Y" }}
+                        <strong>Do:</strong> {{ vacation.end_date|date:"d.m.Y" }}
+                    </p>
+                    <p class="text-gray-700">
+                        <strong>Ukupno sati:</strong> {{ vacation.total_vacation_hours }}
+                        <strong>Ukupno dana:</strong> {{ vacation.total_vacation_days|floatformat:2 }}
+                    </p>
+                </div>
+                <div class="flex space-x-2">
+                    <!-- Edit button -->
+                    <button class="edit-vacation" data-vacation-id="{{ vacation.id }}" data-start-date="{{ vacation.start_date }}" data-end-date="{{ vacation.end_date }}">
+                        <img src="{% static 'icons/edit.svg' %}" alt="Edit" class="h-7 w-7">
+                    </button>
+                    <!-- Delete button -->
+                    <form method="POST" action="{% url 'delete_vacation' vacation.id %}">
+                        {% csrf_token %}
+                        <button type="submit">
+                            <img src="{% static 'icons/deleteB.svg' %}" alt="Delete"
+                                class="h-7 w-7 border-gray-950 rounded-md hover:bg-red-500 transition-colors duration-300 hover:shadow-md">
+                        </button>
+                    </form>
+                </div>
+            </li>
+            {% empty %}
+            <li class="bg-gray-100 p-4 rounded-lg shadow">
+                <p class="text-gray-700">Nema dodanih godišnjih odmora.</p>
+            </li>
+            {% endfor %}
+        </ul>
+    </div>
+</div>
 
-        <!-- Sick Leave Block -->
-        <div x-data="{ open: false }" class="p-6 bg-white rounded-lg shadow-md">
-            <h2 class="text-2xl font-semibold mb-4">Bolovanje</h2>
-            <div @click="open = !open"
-                class="text-xl font-semibold text-black py-2 hover:bg-gray-300 cursor-pointer rounded-lg flex justify-between items-center">
-                <span>Dodaj Bolovanje</span>
-                <img :class="{ 'rotate-180': open }" class="transition-transform duration-200"
-                    src="{% static 'icons/down_arrow.svg' %}" alt="Arrow">
+
+<!-- Sick Leave Block -->
+<div x-data="{ open: false }" class="p-6 bg-white rounded-lg shadow-md">
+    <h2 class="text-2xl font-semibold mb-4">Bolovanje</h2>
+    <div @click="open = !open"
+        class="text-xl font-semibold text-black py-2 hover:bg-gray-300 cursor-pointer rounded-lg flex justify-between items-center">
+        <span>Dodaj Bolovanje</span>
+        <img :class="{ 'rotate-180': open }" class="transition-transform duration-200"
+            src="{% static 'icons/down_arrow.svg' %}" alt="Arrow">
+    </div>
+    <div x-show="open" x-transition>
+        <form method="POST" action="{% url 'handle_sick_leave' employee.id %}" class="mt-4">
+            {% csrf_token %}
+            <div class="mb-4">
+                <label for="start_date" class="block text-sm font-medium text-gray-700">Početni datum:</label>
+                <input type="date" name="start_date" id="start_date"
+                    class="mt-1 block w-full py-2 px-3 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-red-500 focus:border-red-500 sm:text-sm"
+                    required>
             </div>
-            <div x-show="open" x-transition>
-                <form method="POST" action="{% url 'handle_sick_leave' employee.id %}" class="mt-4">
+            <div class="mb-4">
+                <label for="end_date" class="block text-sm font-medium text-gray-700">Krajnji datum:</label>
+                <input type="date" name="end_date" id="end_date"
+                    class="mt-1 block w-full py-2 px-3 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-red-500 focus:border-red-500 sm:text-sm"
+                    required>
+            </div>
+            <button type="submit"
+                class="px-4 py-2 bg-red-500 hover:bg-red-700 text-white font-bold rounded-lg shadow">Dodaj
+                Bolovanje</button>
+        </form>
+    </div>
+    <div class="mt-6">
+        <h3 class="text-xl font-semibold mb-2">Bolovanja</h3>
+        <ul class="space-y-2">
+            {% for sick_leave in sick_leaves %}
+            <li class="bg-gray-100 p-4 rounded-lg shadow flex justify-between items-center">
+                <div>
+                    <p class="text-gray-700">
+                        <strong>Od:</strong> {{ sick_leave.start_date|date:"d.m.Y" }}
+                        <strong>Do:</strong> {{ sick_leave.end_date|date:"d.m.Y" }}
+                    </p>
+                </div>
+                <div class="flex space-x-2">
+                    <!-- Edit button -->
+                    <button class="edit-sick-leave" data-sick-leave-id="{{ sick_leave.id }}" data-start-date="{{ sick_leave.start_date }}" data-end-date="{{ sick_leave.end_date }}">
+                        <img src="{% static 'icons/edit.svg' %}" alt="Edit" class="h-7 w-7">
+                    </button>
+                    <!-- Delete button -->
+                    <form method="POST" action="{% url 'delete_sick_leave' sick_leave.id %}">
+                        {% csrf_token %}
+                        <button type="submit">
+                            <img src="{% static 'icons/deleteB.svg' %}" alt="Delete"
+                                class="h-7 w-7 border-gray-950 rounded-md hover:bg-red-500 transition-colors duration-300 hover:shadow-md">
+                        </button>
+                    </form>
+                </div>
+            </li>
+            {% empty %}
+            <li class="bg-gray-100 p-4 rounded-lg shadow">
+                <p class="text-gray-700">Nema dodanih bolovanja.</p>
+            </li>
+            {% endfor %}
+        </ul>
+    </div>
+</div>
+
+    </div>
+</div>
+
+<!-- Modal for Adding WorkDay -->
+<div id="addWorkdayModal" class="fixed z-10 inset-0 overflow-y-auto hidden">
+    <div class="flex items-center justify-center min-h-screen">
+      <div class="fixed inset-0 transition-opacity" aria-hidden="true">
+        <div class="absolute inset-0 bg-gray-500 opacity-75"></div>
+      </div>
+      <div class="bg-white rounded-lg overflow-hidden shadow-xl transform transition-all sm:max-w-lg sm:w-full">
+        <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+          <h3 class="text-lg leading-6 font-medium text-gray-900 mb-4">
+            Dodaj Radni Dan
+          </h3>
+          <form id="addWorkdayForm">
+            <input type="hidden" name="date" id="workdayDate">
+            <div class="mb-4">
+              <label for="shiftType" class="block text-sm font-medium text-gray-700">Smjena</label>
+              <select id="shiftType" name="shift_type_id" required
+                class="mt-1 block w-full py-2 px-3 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-red-500 focus:border-red-500 sm:text-sm">
+                {% for shift in shift_types %}
+                <option value="{{ shift.id }}">{{ shift.name }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="flex justify-end">
+              <button type="button" id="cancelAddWorkday"
+                class="mr-2 px-4 py-2 bg-gray-300 hover:bg-gray-400 text-black font-bold rounded-lg shadow">
+                Odustani
+              </button>
+              <button type="submit"
+                class="px-4 py-2 bg-red-500 hover:bg-red-700 text-white font-bold rounded-lg shadow">
+                Dodaj
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Edit Vacation Modal -->
+<div id="editVacationModal" class="fixed z-10 inset-0 overflow-y-auto hidden">
+    <div class="flex items-center justify-center min-h-screen">
+      <div class="fixed inset-0 transition-opacity" aria-hidden="true">
+        <div class="absolute inset-0 bg-gray-500 opacity-75"></div>
+      </div>
+      <div class="bg-white rounded-lg overflow-hidden shadow-xl transform transition-all sm:max-w-lg sm:w-full">
+        <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+          <h3 class="text-lg leading-6 font-medium text-gray-900 mb-4">
+            Uredi Godišnji Odmor
+          </h3>
+          <form id="editVacationForm">
+            {% csrf_token %}
+            <input type="hidden" name="vacation_id" id="editVacationId">
+            <div class="mb-4">
+              <label for="edit_start_date" class="block text-sm font-medium text-gray-700">Početni datum:</label>
+              <input type="date" name="start_date" id="edit_start_date"
+                  class="mt-1 block w-full py-2 px-3 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-red-500 focus:border-red-500 sm:text-sm"
+                  required>
+            </div>
+            <div class="mb-4">
+              <label for="edit_end_date" class="block text-sm font-medium text-gray-700">Krajnji datum:</label>
+              <input type="date" name="end_date" id="edit_end_date"
+                  class="mt-1 block w-full py-2 px-3 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-red-500 focus:border-red-500 sm:text-sm"
+                  required>
+            </div>
+            <div class="flex justify-end">
+              <button type="button" id="cancelEditVacation"
+                class="mr-2 px-4 py-2 bg-gray-300 hover:bg-gray-400 text-black font-bold rounded-lg shadow">
+                Odustani
+              </button>
+              <button type="submit"
+                class="px-4 py-2 bg-red-500 hover:bg-red-700 text-white font-bold rounded-lg shadow">
+                Spremi Promjene
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+</div>
+
+<!-- Edit Total Vacation Hours Modal -->
+<div x-show="openVacationHoursModal" class="fixed z-10 inset-0 overflow-y-auto">
+    <div class="flex items-center justify-center min-h-screen">
+        <div class="fixed inset-0 transition-opacity" aria-hidden="true">
+            <div class="absolute inset-0 bg-gray-500 opacity-75"></div>
+        </div>
+        <div class="bg-white rounded-lg overflow-hidden shadow-xl transform transition-all sm:max-w-lg sm:w-full">
+            <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                <h3 class="text-lg leading-6 font-medium text-gray-900 mb-4">
+                    Uredi Ukupne Godišnje Sate
+                </h3>
+                <form method="POST" action="{% url 'update_total_vacation_hours' employee.id %}">
                     {% csrf_token %}
                     <div class="mb-4">
-                        <label for="start_date" class="block text-sm font-medium text-gray-700">Početni datum:</label>
-                        <input type="date" name="start_date" id="start_date"
-                            class="mt-1 block w-full py-2 px-3 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-red-500 focus:border-red-500 sm:text-sm"
+                        <label for="total_vacation_hours" class="block text-sm font-medium text-gray-700">Ukupno
+                            godišnjih sati:</label>
+                        <input type="number" name="total_vacation_hours" id="total_vacation_hours"
+                            value="{{ employee.total_vacation_hours }}"
+                            class="mt-1 block w-full py-2 px-3 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                             required>
                     </div>
-                    <div class="mb-4">
-                        <label for="end_date" class="block text-sm font-medium text-gray-700">Krajnji datum:</label>
-                        <input type="date" name="end_date" id="end_date"
-                            class="mt-1 block w-full py-2 px-3 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-red-500 focus:border-red-500 sm:text-sm"
-                            required>
+                    <div class="flex justify-end">
+                        <button type="button" @click="openVacationHoursModal = false"
+                            class="mr-2 px-4 py-2 bg-gray-300 hover:bg-gray-400 text-black font-bold rounded-lg shadow">
+                            Odustani
+                        </button>
+                        <button type="submit"
+                            class="px-4 py-2 bg-blue-500 hover:bg-blue-700 text-white font-bold rounded-lg shadow">
+                            Spremi
+                        </button>
                     </div>
-                    <button type="submit"
-                        class="px-4 py-2 bg-red-500 hover:bg-red-700 text-white font-bold rounded-lg shadow">Dodaj
-                        Bolovanje</button>
                 </form>
-            </div>
-            <div class="mt-6">
-                <h3 class="text-xl font-semibold mb-2">Bolovanja</h3>
-                <ul class="space-y-2">
-                    {% for sick_leave in sick_leaves %}
-                    <li class="bg-gray-100 p-4 rounded-lg shadow flex justify-between items-center">
-                        <div>
-                            <p class="text-gray-700"><strong>Od:</strong> {{ sick_leave.start_date|date:"d.m.Y" }}
-                                <strong>Do:</strong> {{ sick_leave.end_date|date:"d.m.Y" }}
-                            </p>
-                        </div>
-                        <form method="POST" action="{% url 'delete_sick_leave' sick_leave.id %}">
-                            {% csrf_token %}
-                            <button type="submit" class="text-red-500 hover:text-red-700">
-                                <img src="{% static 'icons/deleteB.svg' %}" alt="Delete" class="w-6 h-6">
-                            </button>
-                        </form>
-                    </li>
-                    {% empty %}
-                    <li class="bg-gray-100 p-4 rounded-lg shadow">
-                        <p class="text-gray-700">Nema dodanih bolovanja.</p>
-                    </li>
-                    {% endfor %}
-                </ul>
             </div>
         </div>
     </div>
 </div>
 
+<!-- Edit Sick Leave Modal -->
+<div id="editSickLeaveModal" class="fixed z-10 inset-0 overflow-y-auto hidden">
+    <div class="flex items-center justify-center min-h-screen">
+      <div class="fixed inset-0 transition-opacity" aria-hidden="true">
+        <div class="absolute inset-0 bg-gray-500 opacity-75"></div>
+      </div>
+      <div class="bg-white rounded-lg overflow-hidden shadow-xl transform transition-all sm:max-w-lg sm:w-full">
+        <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+          <h3 class="text-lg leading-6 font-medium text-gray-900 mb-4">
+            Uredi Bolovanje
+          </h3>
+          <form id="editSickLeaveForm">
+            {% csrf_token %}
+            <input type="hidden" name="sick_leave_id" id="editSickLeaveId">
+            <div class="mb-4">
+              <label for="edit_sick_start_date" class="block text-sm font-medium text-gray-700">Početni datum:</label>
+              <input type="date" name="start_date" id="edit_sick_start_date"
+                  class="mt-1 block w-full py-2 px-3 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-red-500 focus:border-red-500 sm:text-sm"
+                  required>
+            </div>
+            <div class="mb-4">
+              <label for="edit_sick_end_date" class="block text-sm font-medium text-gray-700">Krajnji datum:</label>
+              <input type="date" name="end_date" id="edit_sick_end_date"
+                  class="mt-1 block w-full py-2 px-3 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-red-500 focus:border-red-500 sm:text-sm"
+                  required>
+            </div>
+            <div class="flex justify-end">
+              <button type="button" id="cancelEditSickLeave"
+                class="mr-2 px-4 py-2 bg-gray-300 hover:bg-gray-400 text-black font-bold rounded-lg shadow">
+                Odustani
+              </button>
+              <button type="submit"
+                class="px-4 py-2 bg-red-500 hover:bg-red-700 text-white font-bold rounded-lg shadow">
+                Spremi Promjene
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+</div>
+
+
+
+<!-- Include the JavaScript code -->
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script> <!-- Include SweetAlert2 -->
+
+
 <script>
     document.addEventListener('DOMContentLoaded', function () {
+        // Handle edit sick leave
+const editSickLeaveButtons = document.querySelectorAll('.edit-sick-leave');
+const editSickLeaveModal = document.getElementById('editSickLeaveModal');
+const editSickLeaveForm = document.getElementById('editSickLeaveForm');
+const editSickLeaveId = document.getElementById('editSickLeaveId');
+const editSickStartDate = document.getElementById('edit_sick_start_date');
+const editSickEndDate = document.getElementById('edit_sick_end_date');
+const cancelEditSickLeave = document.getElementById('cancelEditSickLeave');
+
+editSickLeaveButtons.forEach(button => {
+    button.addEventListener('click', function () {
+        const sickLeaveId = this.getAttribute('data-sick-leave-id');
+        const startDate = this.getAttribute('data-start-date');
+        const endDate = this.getAttribute('data-end-date');
+
+        // Populate the form fields
+        editSickLeaveId.value = sickLeaveId;
+        editSickStartDate.value = startDate;
+        editSickEndDate.value = endDate;
+
+        // Show the modal
+        editSickLeaveModal.classList.remove('hidden');
+    });
+});
+
+cancelEditSickLeave.addEventListener('click', function () {
+    // Hide the modal
+    editSickLeaveModal.classList.add('hidden');
+});
+
+editSickLeaveForm.addEventListener('submit', function (event) {
+    event.preventDefault();
+    const sickLeaveId = editSickLeaveId.value;
+    const startDate = editSickStartDate.value;
+    const endDate = editSickEndDate.value;
+
+    // Send AJAX request to update the sick leave
+    fetch(`/edit_sick_leave/${sickLeaveId}/`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken'),
+        },
+        body: JSON.stringify({
+            start_date: startDate,
+            end_date: endDate,
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === 'success') {
+            location.reload();
+        } else {
+            showAlert('Greška pri ažuriranju bolovanja: ' + data.message, 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showAlert('Greška pri ažuriranju bolovanja', 'error');
+    });
+});
+
+    // Handle edit vacation
+    const editVacationButtons = document.querySelectorAll('.edit-vacation');
+    const editVacationModal = document.getElementById('editVacationModal');
+    const editVacationForm = document.getElementById('editVacationForm');
+    const editVacationId = document.getElementById('editVacationId');
+    const editStartDate = document.getElementById('edit_start_date');
+    const editEndDate = document.getElementById('edit_end_date');
+    const cancelEditVacation = document.getElementById('cancelEditVacation');
+
+    editVacationButtons.forEach(button => {
+        button.addEventListener('click', function () {
+            const vacationId = this.getAttribute('data-vacation-id');
+            const startDate = this.getAttribute('data-start-date');
+            const endDate = this.getAttribute('data-end-date');
+
+            // Populate the form fields
+            editVacationId.value = vacationId;
+            editStartDate.value = startDate;
+            editEndDate.value = endDate;
+
+            // Show the modal
+            editVacationModal.classList.remove('hidden');
+        });
+    });
+
+    cancelEditVacation.addEventListener('click', function () {
+        // Hide the modal
+        editVacationModal.classList.add('hidden');
+    });
+
+    editVacationForm.addEventListener('submit', function (event) {
+        event.preventDefault();
+        const vacationId = editVacationId.value;
+        const startDate = editStartDate.value;
+        const endDate = editEndDate.value;
+
+        // Send AJAX request to update the vacation
+        fetch(`/edit_vacation/${vacationId}/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken'),
+            },
+            body: JSON.stringify({
+                start_date: startDate,
+                end_date: endDate,
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                location.reload();
+            } else {
+                showAlert('Greška pri ažuriranju godišnjeg odmora: ' + data.message, 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showAlert('Greška pri ažuriranju godišnjeg odmora', 'error');
+        });
+    });
+
+
         // Handle cell editing
         const tableBody = document.getElementById('hours-table-body');
         tableBody.addEventListener('click', function (event) {
             const target = event.target;
+
+            // Handle deleting a WorkDay
+            if (target.closest('.remove-workday')) {
+                const button = target.closest('.remove-workday');
+                const date = button.getAttribute('data-date');
+                const shiftTypeId = button.getAttribute('data-shift-type-id');
+                // Show a better confirmation popup
+                showConfirmationDialog('Jeste li sigurni da želite obrisati radni dan za ' + date + '?')
+                .then((result) => {
+                    if (result.isConfirmed) {
+                        removeWorkdayEntry('{{ employee.id }}', date, shiftTypeId);
+                    }
+                });
+                return;
+            }
+
+            // Handle cell editing
             if (target.classList.contains('editable-cell')) {
                 const originalValue = target.textContent.trim();
+
                 const input = document.createElement('input');
                 input.type = 'number';
-                input.step = '0.01';
+                input.step = '1.0';
                 input.value = originalValue;
-                input.className = 'w-full h-full';
-                input.style.backgroundColor = target.style.backgroundColor; // Preserve background color
+                input.className = 'w-full h-full p-0 m-0 text-center';
+                input.style.backgroundColor = 'transparent';
+                input.style.border = 'none';
+                input.style.outline = 'none';
+                input.style.width = '100%';
+                input.style.boxSizing = 'border-box';
 
                 // Replace cell content with input
                 target.textContent = '';
@@ -414,7 +833,17 @@
                 input.focus();
 
                 const field = target.getAttribute('data-field');
+                let shiftTypeId = target.getAttribute('data-shift-type-id');  // Get shiftTypeId
+
+                if (!shiftTypeId) {
+                    showAlert('Molimo dodajte radni dan prije unosa sati.', 'warning');
+                    input.blur();
+                    return;
+                }
+
+                highlightCell(target);
                 highlightColumn(field);
+                highlightRow(target.parentElement);
 
                 input.addEventListener('blur', function () {
                     const newValue = input.value.trim();
@@ -423,11 +852,20 @@
                     // Restore cell content
                     target.textContent = newValue;
 
-                    // Remove highlight
+                    // Remove highlights
+                    removeHighlightCell(target);
                     removeHighlightColumn(field);
+                    removeHighlightRow(target.parentElement);
+
+                    // Fade effect on the text
+                    target.style.color = 'red';
+                    target.style.transition = 'color 1s ease';
+                    setTimeout(function () {
+                        target.style.color = 'black';
+                    }, 10); // Start the transition
 
                     // Send AJAX request to update the value
-                    updateWorkdayHours('{{ employee.id }}', date, field, newValue);
+                    updateWorkdayHours('{{ employee.id }}', date, field, newValue, shiftTypeId);
                 });
 
                 input.addEventListener('keydown', function (e) {
@@ -438,22 +876,60 @@
             }
         });
 
-        function highlightColumn(field) {
-            const cells = document.querySelectorAll(`td[data-field='${field}'], th[data-field='${field}']`);
-            cells.forEach(cell => {
-                cell.classList.add('bg-yellow-100');
+        // Function to remove WorkDay entry
+        function removeWorkdayEntry(employeeId, date, shiftTypeId) {
+            fetch(`/remove_workday_entry/${employeeId}/`, {
+                method: 'DELETE',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken'),
+                },
+                body: JSON.stringify({
+                    date: date,
+                    shift_type_id: shiftTypeId,
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    location.reload();
+                } else {
+                    showAlert('Greška pri brisanju radnog dana: ' + data.message, 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showAlert('Greška pri brisanju radnog dana', 'error');
             });
         }
 
-        function removeHighlightColumn(field) {
-            const cells = document.querySelectorAll(`td[data-field='${field}'], th[data-field='${field}']`);
-            cells.forEach(cell => {
-                // Remove the highlight but preserve original background color
-                cell.classList.remove('bg-yellow-100');
+        // Function to show confirmation dialog
+        function showConfirmationDialog(message) {
+            return Swal.fire({
+                title: 'Potvrda',
+                text: message,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonText: 'Da',
+                cancelButtonText: 'Ne',
+                confirmButtonColor: '#3085d6',  // Blue color
+                cancelButtonColor: '#d33',      // Red color
             });
         }
 
-        function updateWorkdayHours(employeeId, date, field, value) {
+        // Function to show alert
+        function showAlert(message, icon) {
+            Swal.fire({
+                text: message,
+                icon: icon,
+                confirmButtonText: 'U redu',
+                confirmButtonColor: '#3085d6',  // Blue color
+            });
+        }
+
+
+        // Function to update WorkDay hours
+        function updateWorkdayHours(employeeId, date, field, value, shiftTypeId) {
             fetch(`/update_workday_hours/${employeeId}/`, {
                 method: 'POST',
                 headers: {
@@ -464,18 +940,50 @@
                     date: date,
                     field: field,
                     value: value,
+                    shift_type_id: shiftTypeId,
                 })
             })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.status !== 'success') {
-                        alert('Error updating workday hours');
-                    }
-                })
-                .catch(error => {
-                    console.error('Error:', error);
-                    alert('Error updating workday hours');
-                });
+            .then(response => response.json())
+            .then(data => {
+                if (data.status !== 'success') {
+                    showAlert('Greška pri ažuriranju radnog dana: ' + data.message, 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showAlert('Greška pri ažuriranju radnog dana', 'error');
+            });
+        }
+
+        // Functions for highlighting
+        function highlightCell(cell) {
+            cell.classList.add('highlighted-cell');
+        }
+
+        function removeHighlightCell(cell) {
+            cell.classList.remove('highlighted-cell');
+        }
+
+        function highlightColumn(field) {
+            const cells = document.querySelectorAll(`td[data-field='${field}'], th[data-field='${field}']`);
+            cells.forEach(cell => {
+                cell.classList.add('highlighted-column');
+            });
+        }
+
+        function removeHighlightColumn(field) {
+            const cells = document.querySelectorAll(`td[data-field='${field}'], th[data-field='${field}']`);
+            cells.forEach(cell => {
+                cell.classList.remove('highlighted-column');
+            });
+        }
+
+        function highlightRow(row) {
+            row.classList.add('highlighted-row');
+        }
+
+        function removeHighlightRow(row) {
+            row.classList.remove('highlighted-row');
         }
 
         // CSRF token function
@@ -513,5 +1021,38 @@
         }
     });
 </script>
+
+<!-- Add the CSS styles for highlighting and modal -->
+<style>
+    /* Ensure cells don't overflow */
+    td, th {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    /* Highlighted cell */
+    .highlighted-cell {
+        border: 2px solid blue;
+    }
+
+    /* Highlighted column */
+    .highlighted-column {
+        background-color: #e0f7fa; /* Light cyan background */
+    }
+
+    /* Highlighted row */
+    .highlighted-row {
+        background-color: #f1f8e9; /* Light green background */
+    }
+
+    /* Modal Styles */
+    #addWorkdayModal {
+        display: none;
+    }
+    #addWorkdayModal:not(.hidden) {
+        display: block;
+    }
+</style>
 
 {% endblock %}
