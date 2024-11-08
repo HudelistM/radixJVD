@@ -102,7 +102,7 @@
 }
 
 .employee-locked {
-  @apply text-white bg-gray-400 cursor-not-allowed;
+  @apply text-white bg-white border-0 cursor-not-allowed;
 }
 
 /* Style the range inputs */
