@@ -1,6 +1,6 @@
 from django.db import models
 from django.db.models import Sum
-import uuid
+from django.db.models import F
 
 class Employee(models.Model):
     name = models.CharField(max_length=100)
@@ -25,7 +25,9 @@ class Employee(models.Model):
     
     def calculate_monthly_hours(self, month, year):
         work_days = self.workday_set.filter(date__year=year, date__month=month)
-        total_hours = work_days.aggregate(total=Sum('day_hours') + Sum('night_hours'))['total'] or 0
+        total_hours = work_days.aggregate(
+            total=Sum(F('day_hours') + F('night_hours'))
+        )['total'] or 0
         return total_hours
 
     def calculate_redovan_rad(self, month, year):

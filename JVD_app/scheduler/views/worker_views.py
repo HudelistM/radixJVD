@@ -15,7 +15,7 @@ from collections import defaultdict
 from django.db.models import Sum
 
 from ..forms import UserRegisterForm, EmployeeForm
-from ..models import ShiftType, Employee, WorkDay, FreeDay, Vacation, SickLeave
+from ..models import ShiftType, Employee, WorkDay, FreeDay, Vacation, SickLeave, Holiday, ExcessHours
 
 from datetime import date, timedelta, datetime
 import json
@@ -29,6 +29,10 @@ logger = logging.getLogger(__name__)
 #--------------------------------------------------------------------------
 #------------------------Funkcije za CRUD radnika--------------------------
 #--------------------------------------------------------------------------
+
+def is_office_employee(employee):
+    return (employee.group == '1') or (employee.group == '6' and employee.name == 'Ana' and employee.surname == 'Bazijanec')
+
 
 def get_week_dates(start_date):
     # start_date is assumed to be a Monday
@@ -90,62 +94,25 @@ def add_or_edit_employee(request):
 
 def handle_vacation_schedule(employee, start_date, end_date):
     if start_date and end_date:
-        # Convert strings to date objects if necessary
         if isinstance(start_date, str):
             start_date = parse_date(start_date)
         if isinstance(end_date, str):
             end_date = parse_date(end_date)
         
-        shift_type_vacation = ShiftType.objects.get(name="Godišnji odmor")  # Ensure this shift type exists
+        shift_type_vacation = ShiftType.objects.get(name="Godišnji odmor")
+
         current_date = start_date
         day_count = 0
-        
         while current_date <= end_date:
-            # Determine hours based on the vacation shift pattern
-            if day_count % 4 == 0:  # Day 1: First Shift
-                hours = 12
-            elif day_count % 4 == 1:  # Day 2: Night Shift starts
-                hours = 5
-            elif day_count % 4 == 2:  # Day 3: Continuation of Night Shift
-                hours = 7
-            else:  # Day 4: Free day
-                hours = 0
-
-            # Always create or update the WorkDay
-            work_day, work_created = WorkDay.objects.get_or_create(
-                employee=employee, 
-                date=current_date,
-                shift_type=shift_type_vacation,  # Ensure shift_type is set
-                defaults={'vacation_hours': hours}
-            )
-            if not work_created:
-                work_day.vacation_hours = hours
-                work_day.save()
-
-            # Move to the next day
-            current_date += timedelta(days=1)
-            day_count += 1
-
-
-def handle_sick_leave_schedule(employee, start_date, end_date):
-    if start_date and end_date:
-        # Convert strings to date objects if necessary
-        if isinstance(start_date, str):
-            start_date = parse_date(start_date)
-        if isinstance(end_date, str):
-            end_date = parse_date(end_date)
-        
-        shift_type_sick_leave = ShiftType.objects.get(name="Bolovanje")  # Ensure this shift type exists
-        current_date = start_date
-        day_count = 0
-
-        # Determine total days and switch point
-        total_days = (end_date - start_date).days + 1  # Inclusive
-        switch_day = 42  # On day 43, switch to 8 hours per day
-
-        while current_date <= end_date:
-            if day_count < switch_day:
-                # Follow the existing pattern
+            if is_office_employee(employee):
+                # Office employee: 8 hours weekday, 0 if weekend/holiday
+                is_holiday = Holiday.objects.filter(date=current_date).exists()
+                if current_date.weekday() < 5 and not is_holiday:
+                    hours = 8
+                else:
+                    hours = 0
+            else:
+                # Shift employee, follow old pattern 12-5-7-0
                 pattern_day = day_count % 4
                 if pattern_day == 0:
                     hours = 12
@@ -155,21 +122,73 @@ def handle_sick_leave_schedule(employee, start_date, end_date):
                     hours = 7
                 else:
                     hours = 0
-            else:
-                # From day 43 onwards, set 8 hours per day
-                hours = 8
 
             work_day, work_created = WorkDay.objects.get_or_create(
                 employee=employee, 
                 date=current_date,
-                shift_type=shift_type_sick_leave,  # Ensure shift_type is set
+                shift_type=shift_type_vacation,
+                defaults={'vacation_hours': hours}
+            )
+            if not work_created:
+                work_day.vacation_hours = hours
+                work_day.save()
+
+            current_date += timedelta(days=1)
+            day_count += 1
+
+
+def handle_sick_leave_schedule(employee, start_date, end_date):
+    if start_date and end_date:
+        if isinstance(start_date, str):
+            start_date = parse_date(start_date)
+        if isinstance(end_date, str):
+            end_date = parse_date(end_date)
+        
+        shift_type_sick = ShiftType.objects.get(name="Bolovanje")
+
+        current_date = start_date
+        day_count = 0
+        total_days = (end_date - start_date).days + 1
+        switch_day = 42  # After 42 days, office employees: same logic, shift employees: 8 hours
+
+        while current_date <= end_date:
+            if is_office_employee(employee):
+                # Same logic as vacation for office employees
+                is_holiday = Holiday.objects.filter(date=current_date).exists()
+                if current_date.weekday() < 5 and not is_holiday:
+                    hours = 8
+                else:
+                    hours = 0
+            else:
+                # Shift employees: old pattern first 42 days, then 8 hours
+                if day_count < switch_day:
+                    pattern_day = day_count % 4
+                    if pattern_day == 0:
+                        hours = 12
+                    elif pattern_day == 1:
+                        hours = 5
+                    elif pattern_day == 2:
+                        hours = 7
+                    else:
+                        hours = 0
+                else:
+                    # After 42 days, 8 hours every day for shift employees
+                    is_holiday = Holiday.objects.filter(date=current_date).exists()
+                    if current_date.weekday() < 5 and not is_holiday:
+                        hours = 8
+                    else:
+                        hours = 0
+
+            work_day, created = WorkDay.objects.get_or_create(
+                employee=employee,
+                date=current_date,
+                shift_type=shift_type_sick,
                 defaults={'sick_leave_hours': hours}
             )
-            if not work_created or work_day.sick_leave_hours != hours:
+            if not created or work_day.sick_leave_hours != hours:
                 work_day.sick_leave_hours = hours
                 work_day.save()
 
-            # Move to the next day
             current_date += timedelta(days=1)
             day_count += 1
 
@@ -194,13 +213,19 @@ def radnik_profil(request, employee_id):
     current_month = selected_date.month
     days_in_month = monthrange(current_year, current_month)[1]
     
+    # Now that current_year and current_month are defined, we can get excess_record
+    excess_record = ExcessHours.objects.filter(employee=employee, year=current_year, month=current_month).first()
+    excess_hours_value = excess_record.excess_hours if excess_record else 0
+
     # Generate list of dates in the month
     month_dates = [date(current_year, current_month, day) for day in range(1, days_in_month + 1)]
     
     # Fetch WorkDay entries for the employee in the selected month
+    # (You might want to filter by the month if you only want monthly data)
     workdays = WorkDay.objects.filter(employee=employee).select_related('shift_type')
     
     # Create a dictionary with date as key and list of workdays as value
+    from collections import defaultdict
     workday_dict = defaultdict(list)
     for wd in workdays:
         workday_dict[wd.date].append(wd)
@@ -211,17 +236,13 @@ def radnik_profil(request, employee_id):
     
     # For each vacation, calculate total hours and days used
     for vacation in vacations:
-        # Get all WorkDays within this vacation period
         vacation_workdays = WorkDay.objects.filter(
             employee=employee,
             date__range=[vacation.start_date, vacation.end_date],
             shift_type__name="Godišnji odmor"
         )
-        # Sum up the vacation hours
         total_vacation_hours = vacation_workdays.aggregate(total=Sum('vacation_hours'))['total'] or 0
-        # Calculate total vacation days (assuming 8 hours per day)
-        total_vacation_days = total_vacation_hours / 8  # Adjust divisor if your standard working day hours differ
-        # Assign to vacation object
+        total_vacation_days = total_vacation_hours / 8
         vacation.total_vacation_hours = total_vacation_hours
         vacation.total_vacation_days = total_vacation_days
     
@@ -237,9 +258,38 @@ def radnik_profil(request, employee_id):
         'selected_date': selected_date,
         'used_vacation_hours': used_vacation_hours,
         'remaining_vacation_hours': remaining_vacation_hours,
+        'excess_hours_value': excess_hours_value,
     }
-    
+
     return render(request, 'scheduler/radnik_profil.html', context)
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def update_monthly_excess_hours(request, employee_id):
+    employee = get_object_or_404(Employee, id=employee_id)
+    data = json.loads(request.body)
+    value = data.get('value')
+    # We need month and year currently displayed
+    # We'll pass them through the request or deduce them from the page (we have them in radnik_profil)
+    # Let's say we send current_year and current_month from JS:
+    current_year = int(data.get('year'))
+    current_month = int(data.get('month'))
+
+    try:
+        excess_value = float(value)
+    except ValueError:
+        return JsonResponse({'status': 'error', 'message': 'Invalid value'}, status=400)
+
+    # Get or create the record for ExcessHours
+    excess_record, created = ExcessHours.objects.get_or_create(
+        employee=employee, year=current_year, month=current_month,
+        defaults={'excess_hours': 0, 'vacation_hours_used': 0}
+    )
+    excess_record.excess_hours = excess_value
+    excess_record.save()
+
+    return JsonResponse({'status': 'success'})
 
 
 @csrf_exempt
@@ -251,7 +301,6 @@ def update_workday_hours(request, employee_id):
         value = data.get('value')
         shift_type_id = data.get('shift_type_id')
 
-        # Validate input
         if not all([date_str, field, shift_type_id]):
             return JsonResponse({'status': 'error', 'message': 'Invalid data'}, status=400)
 
@@ -259,14 +308,12 @@ def update_workday_hours(request, employee_id):
         employee = get_object_or_404(Employee, id=employee_id)
         shift_type = get_object_or_404(ShiftType, id=shift_type_id)
 
-        # Get or create the WorkDay object
         workday, created = WorkDay.objects.get_or_create(
             employee=employee, 
             date=date_obj, 
             shift_type=shift_type
         )
 
-        # Set the field value
         if value == '':
             setattr(workday, field, None)
         else:
@@ -274,13 +321,47 @@ def update_workday_hours(request, employee_id):
                 value_float = float(value)
             except ValueError:
                 return JsonResponse({'status': 'error', 'message': 'Invalid value'}, status=400)
+
             setattr(workday, field, value_float)
+
+        # If we updated overtime fields, apply on_call subtraction logic
+        if field == 'overtime_hours':
+            overtime_hours = workday.overtime_hours or 0
+            if workday.on_call_hours > 0:
+                workday.on_call_hours = max(workday.on_call_hours - overtime_hours, 0)
+        elif field == 'overtime_service':
+            overtime_service = workday.overtime_service or 0
+            if workday.on_call_hours > 0:
+                workday.on_call_hours = max(workday.on_call_hours - overtime_service, 0)
 
         workday.save()
 
         return JsonResponse({'status': 'success', 'message': 'Workday updated'})
     else:
         return JsonResponse({'status': 'error', 'message': 'Invalid request method'}, status=405)
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def update_employee_field(request, employee_id):
+    employee = get_object_or_404(Employee, id=employee_id)
+    data = json.loads(request.body)
+    field = data.get('field')
+    value = data.get('value')
+
+    if field not in ['role_number', 'excess_hours']:
+        return JsonResponse({'status': 'error', 'message': 'Invalid field'}, status=400)
+
+    try:
+        if field == 'role_number':
+            employee.role_number = int(value)
+        elif field == 'excess_hours':
+            employee.excess_hours = float(value)
+
+        employee.save()
+        return JsonResponse({'status': 'success'})
+    except Exception as e:
+        return JsonResponse({'status': 'error', 'message': str(e)}, status=400)
+
 
 @csrf_exempt
 def remove_workday_entry(request, employee_id):
@@ -489,31 +570,53 @@ def handle_free_day(request, employee_id):
         current_date = start_date
         day_count = 0
         while current_date <= end_date:
-            free_day, created = FreeDay.objects.get_or_create(employee=employee, date=current_date, is_article_39=is_article_39)
+            free_day, created = FreeDay.objects.get_or_create(employee=employee, date=current_date, is_article_39=True)
             work_day, created = WorkDay.objects.get_or_create(employee=employee, date=current_date, shift_type=shift_type)
 
-            # Determine hours based on the free day shift pattern
-            if day_count % 4 == 0:  # Day 1: First Shift
-                hours = 12
-            elif day_count % 4 == 1:  # Day 2: Night Shift starts
-                hours = 5
-            elif day_count % 4 == 2:  # Day 3: Continuation of Night Shift
-                hours = 7
-            else:  # Day 4: Free day
-                hours = 0
+            if is_office_employee(employee):
+                is_holiday = Holiday.objects.filter(date=current_date).exists()
+                if current_date.weekday() < 5 and not is_holiday:
+                    hours = 8
+                else:
+                    hours = 0
+                work_day.article39_hours = hours
+            else:
+                # Old cycle for shift employees: 12/5/7/0 pattern
+                pattern_day = day_count % 4
+                if pattern_day == 0:
+                    hours = 12
+                elif pattern_day == 1:
+                    hours = 5
+                elif pattern_day == 2:
+                    hours = 7
+                else:
+                    hours = 0
+                work_day.article39_hours = hours
 
-            work_day.article39_hours = hours
             work_day.save()
-
             current_date += timedelta(days=1)
             day_count += 1
     else:
         date = parse_date(request.POST.get('date'))
-        free_day, created = FreeDay.objects.get_or_create(employee=employee, date=date, is_article_39=is_article_39)
+        free_day, created = FreeDay.objects.get_or_create(employee=employee, date=date, is_article_39=False)
         work_day, created = WorkDay.objects.get_or_create(employee=employee, date=date, shift_type=shift_type)
+
+        if is_office_employee(employee):
+            is_holiday = Holiday.objects.filter(date=date).exists()
+            if date.weekday() < 5 and not is_holiday:
+                hours = 8
+            else:
+                hours = 0
+        else:
+            # For a single free day by choice for shift employees, could default to 0 or follow a specific pattern if desired
+            # If you previously treated it as 0 hours, keep it 0:
+            hours = 0
+
+        work_day.article39_hours = hours
         work_day.save()
-    
+
     return redirect('radnik_profil', employee_id=employee_id)
+
 
 @require_POST
 def delete_vacation(request, vacation_id):

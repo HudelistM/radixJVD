@@ -512,14 +512,28 @@ function submitOvertime() {
     let requestData = { employee_id: employeeId, date: date, shift_type_id: shiftTypeId };
 
     if (isFirstShift) {
-        // Get values from the dual range slider
+        // Existing logic for first shift
         const startTime = parseFloat(rangeMin.value);
         const endTime = parseFloat(rangeMax.value);
         const totalHours = endTime - startTime;
-
         requestData.day_hours = totalHours;
         requestData.note = `${formatTime(startTime)}-${formatTime(endTime)}`;
-
+    
+        // Include overtime fields just like in the 'else' block
+        const overtimeHours = document.getElementById('overtime-hours').value.trim();
+        const overtimeHoursService = document.getElementById('overtime-hours-service').value.trim();
+        const nightHours = document.getElementById('night-hours').value.trim();
+    
+        // Only set them if the user provided values
+        if (overtimeHours !== '') {
+            requestData.overtime_hours = parseFloat(overtimeHours);
+        }
+        if (overtimeHoursService !== '') {
+            requestData.overtime_service = parseFloat(overtimeHoursService);
+        }
+        if (nightHours !== '') {
+            requestData.night_hours = parseFloat(nightHours);
+        }
     } else {
         // Existing code for other shifts
         const overtimeHours = document.getElementById('overtime-hours').value;
@@ -646,22 +660,24 @@ function handleContextMenu(event) {
     const viewportWidth = window.innerWidth;
     const viewportHeight = window.innerHeight;
 
-    const menuWidth = contextMenu.offsetWidth;
     const menuHeight = contextMenu.offsetHeight;
-
+    const menuWidth = contextMenu.offsetWidth;
     let posX = event.pageX;
     let posY = event.pageY;
-
-    // Adjust position if the menu would go off-screen
-    if (posX + menuWidth > viewportWidth) {
-        posX -= menuWidth;
+    
+    // If menu goes beyond the right edge
+    if (posX + menuWidth > window.innerWidth) {
+        posX = window.innerWidth - menuWidth - 10;
     }
-    if (posY + menuHeight > viewportHeight) {
-        posY -= menuHeight;
+    
+    // If menu goes beyond the bottom edge
+    if (posY + menuHeight > window.innerHeight) {
+        posY = posY - menuHeight - 10; // Position it above the cursor
     }
-
+    
     contextMenu.style.top = `${posY}px`;
     contextMenu.style.left = `${posX}px`;
+    
     contextMenu.classList.remove('hidden');
 
     // Close the context menu when clicking elsewhere
