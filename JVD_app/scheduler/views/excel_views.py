@@ -20,6 +20,9 @@ from openpyxl.utils import get_column_letter
 from openpyxl.styles import PatternFill
 from openpyxl.styles import Font
 
+from django.db.models import Case, When, IntegerField, Value
+from django.db.models.functions import Coalesce
+
 
 #--------------------------------------------------------------------------
 #--------------------- Generiranje Excel datoteki -------------------------
@@ -338,14 +341,30 @@ def download_sihterica_with_filters(request, group_filter=None, exclude_group=No
     current_month = start_date.month
     days_in_month = monthrange(current_year, current_month)[1]
     
-    # Adjusted employee sorting
-    group1_employees = Employee.objects.filter(group='1').order_by('surname', 'name')
+    # Define a role priority for group 1 employees
+    role_priority = Case(
+        When(role='Zapovjednik', then=Value(1)),
+        When(role='Zamjenik zapovjednika', then=Value(2)),
+        When(role='Rukovatelj opcih ekonomskih i komercijalnih poslova', then=Value(3)),
+        When(role='Vatrogasac preventivac', then=Value(4)),
+        When(role='Spremacica', then=Value(5)),
+        When(role='Viši referent za ekonomske poslove', then=Value(6)),
+        default=Value(999),
+        output_field=IntegerField()
+    )
+
+    # For group 1 (office) employees, sort by custom role order, then surname, then name
+    group1_employees = Employee.objects.filter(group='1').annotate(
+        role_order=role_priority
+    ).order_by('role_order', 'surname', 'name')
+
+    # For other employees, sort by group_number, role_number_int, then surname, then name
     other_employees = Employee.objects.exclude(group='1').annotate(
         group_number=Cast('group', output_field=IntegerField()),
         role_number_int=Coalesce('role_number', Value(0))
-    ).order_by('group_number', 'role_number_int')
+    ).order_by('group_number', 'role_number_int', 'surname', 'name')
 
-    # Apply group filters
+    # Apply filters if provided
     if group_filter:
         group1_employees = group1_employees.filter(group=group_filter)
         other_employees = other_employees.filter(group=group_filter)
@@ -353,43 +372,43 @@ def download_sihterica_with_filters(request, group_filter=None, exclude_group=No
         group1_employees = group1_employees.exclude(group=exclude_group)
         other_employees = other_employees.exclude(group=exclude_group)
 
+    # Combine
     employees = list(group1_employees) + list(other_employees)
-    
+
+    # Now employees is correctly filtered and sorted
     output = BytesIO()
     workbook = xlsxwriter.Workbook(output, {'in_memory': True})
-    
+
     # Main timesheet worksheet
     timesheet_worksheet = workbook.add_worksheet('Šihterica')
-    
-    # Format setup
+
+    # Set up formats
     formats = setup_formats(workbook)
-    timesheet_formats = setup_timesheet_formats(workbook)  # Separate format for timesheet
-    
+    timesheet_formats = setup_timesheet_formats(workbook)
+
     write_headers(timesheet_worksheet, current_month, current_year, days_in_month, timesheet_formats)
-    
-    # Process employee data and fill timesheet
     fill_timesheet(timesheet_worksheet, employees, current_year, current_month, days_in_month, timesheet_formats)
-    
-    # Generate aggregate tables in separate sheets
+
+    # Generate other sheets
     overview_worksheet = workbook.add_worksheet('Pregled svih sati')
     generate_total_overview(overview_worksheet, employees, current_year, current_month, formats)
-    
+
     preparation_worksheet = workbook.add_worksheet('Sati pripreme')
     generate_preparation_hours(preparation_worksheet, employees, current_year, current_month, formats)
-    
+
     excess_worksheet = workbook.add_worksheet('Evidencija viška-manjka sati')
     generate_excess_hours(excess_worksheet, employees, current_year, current_month, formats)
-    
+
     vacation_worksheet = workbook.add_worksheet('Evidencija godišnjih odmora')
     generate_vacation_hours(vacation_worksheet, employees, current_year, current_month, formats)
-    
+
     overtime_worksheet = workbook.add_worksheet('Evidencija prekovremenih sati')
     generate_overtime_hours(overtime_worksheet, employees, current_year, current_month, formats)
-    
+
     workbook.close()
     output.seek(0)
 
-    # Adjust the filename based on the group filter
+    # Adjust filename based on filter
     if exclude_group == '6':
         filename_suffix = ''
     elif group_filter == '6':
@@ -400,6 +419,7 @@ def download_sihterica_with_filters(request, group_filter=None, exclude_group=No
     response = HttpResponse(content=output.read(), content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
     response['Content-Disposition'] = f'attachment; filename="{filename_suffix}sihterica_{current_month}_{current_year}.xlsx"'
     return response
+
 
 def setup_formats(workbook):
     """Setup cell formats for the workbook."""
@@ -428,22 +448,37 @@ def setup_formats(workbook):
     }
     return formats
 
-def setup_timesheet_formats(workbook):
+def setup_timesheet_formats(workbook, vacation_color='#008000', sick_color='#FF0000', holiday_color='#D35400'):
     """Setup cell formats specifically for the timesheet."""
+    # Keeping your original comments:
+    # Here we set up the formats for the timesheet including new colors for vacation, sick leave, and holiday
+    
     formats = {
         'title_format': workbook.add_format({'bold': True, 'align': 'center', 'valign': 'vcenter', 'font_size': 16}),
         'bold_format': workbook.add_format({'bold': True, 'align': 'center', 'valign': 'vcenter', 'font_size': 12}),
         'header_format': workbook.add_format({'align': 'center', 'bold': True, 'bg_color': '#f0f0f0'}),
         'total_format': workbook.add_format({'align': 'center', 'bg_color': '#d9e1f2'}),
         'hours_format': workbook.add_format({'align': 'center'}),
-        'saturday_format': workbook.add_format({'align': 'center', 'bg_color': '#CCFFCC'}),  # Green
-        'sunday_format': workbook.add_format({'align': 'center', 'bg_color': '#FFFF99'}),  # Yellow
-        'gray_format': workbook.add_format({'bg_color': '#E0E0E0', 'align': 'center'}),  # Gray
-        'white_format': workbook.add_format({'bg_color': '#FFFFFF', 'align': 'center'}),  # White
-        'vacation_format': workbook.add_format({'align': 'center', 'font_color': '#00FF00'}),
-        'total_vacation_format': workbook.add_format({'align': 'center','font_color': '#00FF00', 'bg_color': '#d9e1f2'})
+        'saturday_format': workbook.add_format({'align': 'center', 'bg_color': '#CCFFCC'}),  # Green for Saturday
+        'sunday_format': workbook.add_format({'align': 'center', 'bg_color': '#FFFF99'}),   # Yellow for Sunday
+        'gray_format': workbook.add_format({'bg_color': '#E0E0E0', 'align': 'center'}),     # Gray
+        'white_format': workbook.add_format({'bg_color': '#FFFFFF', 'align': 'center'}),    # White
+
+        # Vacation now more visible green
+        'vacation_format': workbook.add_format({'align': 'center', 'font_color': vacation_color}),
+        'total_vacation_format': workbook.add_format({'align': 'center', 'font_color': vacation_color, 'bg_color': '#d9e1f2'}),
+
+        # Sick leave red in timesheet
+        'sick_leave_format': workbook.add_format({'align': 'center', 'font_color': sick_color}),
+        'total_sick_leave_format': workbook.add_format({'align': 'center', 'font_color': sick_color, 'bg_color': '#d9e1f2'}),
+
+        # Holiday brown/orange
+        'holiday_format': workbook.add_format({'align': 'center', 'font_color': holiday_color}),
+        'total_holiday_format': workbook.add_format({'align': 'center', 'font_color': holiday_color, 'bg_color': '#d9e1f2'})
     }
-    # Group text color formats
+
+    # Group text color formats remain the same, keeping original comments:
+    # Group text color formats for name formatting:
     formats['group_text_formats'] = {
         '1': workbook.add_format({'color': '#9C7C14', 'align': 'center', 'valign': 'vcenter', 'font_size': 12, 'bold': True}),
         '2': workbook.add_format({'color': '#c9242d', 'align': 'center', 'valign': 'vcenter', 'font_size': 12, 'bold': True}),
@@ -452,7 +487,9 @@ def setup_timesheet_formats(workbook):
         '5': workbook.add_format({'color': '#000000', 'align': 'center', 'valign': 'vcenter', 'font_size': 12, 'bold': True}),
         '6': workbook.add_format({'color': '#6b157a', 'align': 'center', 'valign': 'vcenter', 'font_size': 12, 'bold': True}),
     }
+
     return formats
+
 
 def write_headers(worksheet, current_month, current_year, days_in_month, formats):
     """Write headers for the worksheet based on current month and year."""
@@ -488,19 +525,17 @@ def fill_timesheet(worksheet, employees, current_year, current_month, days_in_mo
     row_idx = 3
     for employee in employees:
         group_format = formats['group_text_formats'].get(employee.group, formats['bold_format'])
-        worksheet.merge_range(row_idx, 0, row_idx + 1, 0, f"{employee.name} {employee.surname}", group_format)
+        worksheet.merge_range(row_idx, 0, row_idx + 1, 0, f"{employee.surname} {employee.name}", group_format)
         worksheet.write(row_idx, 1, 'RD', formats['bold_format'])
         worksheet.write(row_idx + 1, 1, 'RN', formats['bold_format'])
 
-        # Initialize aggregates
-        total_day_hours = total_night_hours = total_saturday_hours = 0
-        total_sunday_hours = total_holiday_hours = total_sick_leave_hours = 0
-        total_vacation_hours = 0  # Initialize to zero
+        total_day_hours = total_night_hours = 0
+        total_saturday_hours = total_sunday_hours = 0
+        total_holiday_hours = total_sick_leave_hours = total_vacation_hours = 0
 
-        # Iterate over each day of the month
         for day in range(1, days_in_month + 1):
             current_date = date(year=current_year, month=current_month, day=day)
-            work_days = WorkDay.objects.filter(employee=employee, date=current_date)  # Fetch all workdays for the date
+            work_days = WorkDay.objects.filter(employee=employee, date=current_date)
             weekday = current_date.weekday()
             base_cell_format = (
                 formats['saturday_format'] if weekday == 5 else
@@ -509,49 +544,55 @@ def fill_timesheet(worksheet, employees, current_year, current_month, days_in_mo
             )
 
             if work_days.exists():
-                total_day_hours_for_day = sum((work_day.day_hours or 0) for work_day in work_days)
-                total_night_hours_for_day = sum((work_day.night_hours or 0) for work_day in work_days)
-                total_vacation_hours_for_day = sum((work_day.vacation_hours or 0) for work_day in work_days)
+                total_day_hours_for_day = sum((wd.day_hours or 0) for wd in work_days)
+                total_night_hours_for_day = sum((wd.night_hours or 0) for wd in work_days)
+                total_vacation_hours_for_day = sum((wd.vacation_hours or 0) for wd in work_days)
+                total_sick_for_day = sum((wd.sick_leave_hours or 0) for wd in work_days)
+                total_holiday_for_day = sum((wd.holiday_hours or 0) for wd in work_days)
 
                 day_hours_display = total_day_hours_for_day if total_day_hours_for_day != 0 else ''
                 night_hours_display = total_night_hours_for_day if total_night_hours_for_day != 0 else ''
 
-                # Apply green text for vacation only on the 'RD' row and maintain weekend formatting
                 if total_vacation_hours_for_day > 0:
-                    worksheet.write(row_idx, day + 1, '0', formats['vacation_format'])  # Green zero for RD row
-                    worksheet.write(row_idx + 1, day + 1, night_hours_display, base_cell_format)  # Normal formatting for RN row
+                    # Vacation
+                    worksheet.write(row_idx, day + 1, '0', formats['vacation_format'])
+                    worksheet.write(row_idx + 1, day + 1, night_hours_display, base_cell_format)
+                elif total_sick_for_day > 0:
+                    # Sick leave: show sick leave hours on RD row and blank on RN
+                    worksheet.write(row_idx, day + 1, '0', formats['sick_leave_format'])
+                    worksheet.write(row_idx + 1, day + 1, '', formats['sick_leave_format'])
+                elif total_holiday_for_day > 0:
+                    # Holiday
+                    worksheet.write(row_idx, day + 1, day_hours_display if day_hours_display else '', formats['holiday_format'])
+                    worksheet.write(row_idx + 1, day + 1, night_hours_display if night_hours_display else '', formats['holiday_format'])
                 else:
+                    # Normal day/night hours
                     worksheet.write(row_idx, day + 1, day_hours_display, base_cell_format)
                     worksheet.write(row_idx + 1, day + 1, night_hours_display, base_cell_format)
 
-                # Update aggregates
                 total_day_hours += total_day_hours_for_day
                 total_night_hours += total_night_hours_for_day
                 total_vacation_hours += total_vacation_hours_for_day
+                total_sick_leave_hours += total_sick_for_day
+                total_holiday_hours += total_holiday_for_day
 
-                # Include night hours in weekend totals
                 if weekday == 5:
                     total_saturday_hours += total_day_hours_for_day + total_night_hours_for_day
                 elif weekday == 6:
                     total_sunday_hours += total_day_hours_for_day + total_night_hours_for_day
-
-                total_holiday_hours += sum((work_day.holiday_hours or 0) for work_day in work_days)
-                total_sick_leave_hours += sum((work_day.sick_leave_hours or 0) for work_day in work_days)
             else:
                 worksheet.write(row_idx, day + 1, '', base_cell_format)
                 worksheet.write(row_idx + 1, day + 1, '', base_cell_format)
 
-        # Load or calculate hourly funds
         try:
             hour_fund = FixedHourFund.objects.get(month__year=current_year, month__month=current_month).required_hours
         except FixedHourFund.DoesNotExist:
-            hour_fund = 168  # Default or error handling scenario
+            hour_fund = 168
 
         redovan_rad = employee.calculate_redovan_rad(current_month, current_year)
         turnus = employee.calculate_monthly_hours(current_month, current_year)
         visak_sati = employee.calculate_visak_sati(current_month, current_year)
 
-        # Fill in the aggregate data
         worksheet.merge_range(row_idx, 34, row_idx + 1, 34, hour_fund, formats['total_format'])
         worksheet.merge_range(row_idx, 35, row_idx + 1, 35, redovan_rad, formats['total_format'])
         worksheet.merge_range(row_idx, 36, row_idx + 1, 36, turnus, formats['total_format'])
@@ -559,11 +600,13 @@ def fill_timesheet(worksheet, employees, current_year, current_month, days_in_mo
         worksheet.merge_range(row_idx, 38, row_idx + 1, 38, total_saturday_hours, formats['total_format'])
         worksheet.merge_range(row_idx, 39, row_idx + 1, 39, total_sunday_hours, formats['total_format'])
         worksheet.merge_range(row_idx, 40, row_idx + 1, 40, total_night_hours, formats['total_format'])
-        worksheet.merge_range(row_idx, 41, row_idx + 1, 41, total_holiday_hours, formats['total_format'])
-        worksheet.merge_range(row_idx, 42, row_idx + 1, 42, total_sick_leave_hours, formats['total_format'])
+        worksheet.merge_range(row_idx, 41, row_idx + 1, 41, total_holiday_hours, formats['total_holiday_format'])
+        worksheet.merge_range(row_idx, 42, row_idx + 1, 42, total_sick_leave_hours, formats['total_sick_leave_format'])
         worksheet.merge_range(row_idx, 43, row_idx + 1, 43, total_vacation_hours, formats['total_vacation_format'])
 
         row_idx += 2
+
+
 
 
 def generate_total_overview(worksheet, employees, current_year, current_month, formats):
@@ -574,8 +617,8 @@ def generate_total_overview(worksheet, employees, current_year, current_month, f
     row_idx = 0  # Start at the top of the new worksheet
     agg_start_col = 0  # Start at the first column
 
-    worksheet.set_column(0, 0, 30)  # Employee name column
-    worksheet.set_column(1, 1, 5)   # rb. column
+    worksheet.set_column(0, 0, 5)  # rb. column
+    worksheet.set_column(1, 1, 30)  # Employee name column
     worksheet.set_column(2, 2, 12)  # Fond sati column
     worksheet.set_column(3, 15, 15)
 
@@ -590,7 +633,7 @@ def generate_total_overview(worksheet, employees, current_year, current_month, f
     row_idx += 1
 
     # Add first aggregate table headers
-    aggregate_headers = ['Ime i Prezime', 'rb.', 'Fond sati', 'Red. rad', 'Drž. pr. i bla.', 'Godišnji o.', 'Bolovanje', 'Noćni rad',
+    aggregate_headers = ['rb.', 'Prezime i ime', 'Fond sati', 'Red. rad', 'Drž. pr. i bla.', 'Godišnji o.', 'Bolovanje', 'Noćni rad',
                          'Rad sub.', 'Rad. ned.', 'Slobodan dan', 'Turnus', 'Priprema', 'Prek.rad', 'Prek. USLUGA', 'Prek. Višak Fonda']
 
     for i, header in enumerate(aggregate_headers):
@@ -652,8 +695,8 @@ def generate_total_overview(worksheet, employees, current_year, current_month, f
         row_format = formats['gray_format'] if idx % 2 == 0 else formats['white_format']
 
         values = [
-            f"{employee.name} {employee.surname}",  # Employee name
             idx + 1,  # rb.
+            f"{employee.surname} {employee.name}",  # Prezime i ime
             hour_fund,  # Fond sati
             redovan_rad,  # Red. rad
             total_holiday_hours,  # Drž. pr. i bla.
@@ -670,6 +713,7 @@ def generate_total_overview(worksheet, employees, current_year, current_month, f
             total_overtime_excess_fond,  # Prek. Višak Fonda
         ]
 
+
         for col, value in enumerate(values):
             worksheet.write(row_idx, agg_start_col + col, value, row_format)
 
@@ -677,7 +721,7 @@ def generate_total_overview(worksheet, employees, current_year, current_month, f
 
     # Add "Ukupno" row for the first aggregate table
     first_data_row = row_idx - len(employees)
-    worksheet.write(row_idx, agg_start_col, 'Ukupno', formats['header_format'])
+    worksheet.write(row_idx, agg_start_col+1, 'Ukupno', formats['header_format'])
 
     # Sum columns from 'Fond sati' (col_num=2) to 'Prek. Višak Fonda' (col_num=15)
     for col_num in range(2, 16):
@@ -687,11 +731,11 @@ def generate_total_overview(worksheet, employees, current_year, current_month, f
 
 
 def generate_preparation_hours(worksheet, employees, current_year, current_month, formats):
-    worksheet.set_column(0, 0, 30)  # Employee name column
-    worksheet.set_column(1, 1, 5)   # rb. column
+    worksheet.set_column(0, 0, 5)  # rb. column
+    worksheet.set_column(1, 1, 30)  # Employee name column
     worksheet.set_column(2, 6, 10)  # Week columns
     worksheet.set_column(7, 7, 20)  # Priprema um. prekovremene column
-    worksheet.set_column(8, 8, 12) # Ukupno column
+    worksheet.set_column(8, 8, 12)  # Ukupno column
 
     first_day_of_month = date(current_year, current_month, 1)
     last_day_of_month = date(current_year, current_month, monthrange(current_year, current_month)[1])
@@ -701,65 +745,80 @@ def generate_preparation_hours(worksheet, employees, current_year, current_month
     worksheet.merge_range(agg_start_row, 0, agg_start_row, 8, 'BROJ SATI PRIPREME', formats['title_format'])
     agg_start_row += 1
 
-    worksheet.write(agg_start_row, 0, 'Ime i Prezime', formats['header_format'])
-    worksheet.write(agg_start_row, 1, 'rb.', formats['header_format'])
-    
+    # Write headers (rb. then Prezime i ime)
+    worksheet.write(agg_start_row, 0, 'rb.', formats['header_format'])
+    worksheet.write(agg_start_row, 1, 'Prezime i ime', formats['header_format'])
+
     start_week_col = 2
     end_week_col = start_week_col + len(weeks) - 1
     worksheet.merge_range(agg_start_row, start_week_col, agg_start_row, end_week_col, 'Prip. iz rasporeda', formats['header_format'])
     worksheet.write(agg_start_row, end_week_col + 1, 'Priprema um. prekovremene', formats['header_format'])
     worksheet.write(agg_start_row, end_week_col + 2, 'Ukupno', formats['header_format'])
-    
+
     agg_start_row += 1
-    
+
     for idx, employee in enumerate(employees):
         row_format = formats['gray_format'] if idx % 2 == 0 else formats['white_format']
-        worksheet.write(agg_start_row, 0, f"{employee.name} {employee.surname}", row_format)
-        worksheet.write(agg_start_row, 1, idx + 1, row_format)
-        
+        # Now we can use idx and employee
+        worksheet.write(agg_start_row, 0, idx + 1, row_format)  # rb.
+        worksheet.write(agg_start_row, 1, f"{employee.surname} {employee.name}", row_format)
+
         col_offset = 2
         total_weekly_hours = 0
         for week_num in sorted(weeks):
-            week_days = [first_day_of_month + timedelta(days=x) for x in range((last_day_of_month - first_day_of_month).days + 1) if (first_day_of_month + timedelta(days=x)).isocalendar()[1] == week_num]
+            week_days = [first_day_of_month + timedelta(days=x) 
+                         for x in range((last_day_of_month - first_day_of_month).days + 1) 
+                         if (first_day_of_month + timedelta(days=x)).isocalendar()[1] == week_num]
             weekly_hours = sum(WorkDay.objects.filter(employee=employee, date__in=week_days).values_list('on_call_hours', flat=True))
             worksheet.write(agg_start_row, col_offset, weekly_hours, row_format)
             total_weekly_hours += weekly_hours
             col_offset += 1
-        
+
         worksheet.write(agg_start_row, col_offset, 0, row_format)
         worksheet.write(agg_start_row, col_offset + 1, total_weekly_hours, row_format)
-        
+
         agg_start_row += 1
-        
+
     total_row = agg_start_row
     first_data_row = agg_start_row - len(employees)
 
-    worksheet.write(total_row, 0, 'Ukupno', formats['header_format'])
-    worksheet.write(total_row, 1, '', formats['header_format'])  # Empty cell under 'rb.'
+    # rb. column is at 0, Prezime i ime at 1. So 'Ukupno' should go under the 'Prezime i ime' column
+    worksheet.write(total_row, 0, '', formats['header_format'])
+    worksheet.write(total_row, 1, 'Ukupno', formats['header_format'])
 
-    # Calculate the total for each week and the 'Ukupno' column
-    total_columns = range(2, col_offset + 2)  # From week columns to 'Ukupno' column
+    total_columns = range(2, col_offset + 2)
     for col_num in total_columns:
         column_letter_value = xlsxwriter.utility.xl_col_to_name(col_num)
         formula = f"=SUM({column_letter_value}{first_data_row + 1}:{column_letter_value}{total_row})"
         worksheet.write_formula(total_row, col_num, formula, formats['total_format'])
 
 def generate_excess_hours(worksheet, employees, current_year, current_month, formats):
-    worksheet.set_column(0, 0, 30)  # Employee name column
-    worksheet.set_column(1, 1, 5)
+    worksheet.set_column(0, 0, 5)  # rb. column
+    worksheet.set_column(1, 1, 30)  # Employee name column
     worksheet.set_column(2, 4, 20)
-    
+
     agg_start_row = 0
     worksheet.merge_range(agg_start_row, 0, agg_start_row, 4, 'EVIDENCIJA VIŠKA-MANJKA SATI', formats['title_format'])
-    sub_headers = ['PREZIME I IME', 'rb', f"Fond sati s {monthrange(current_year, current_month - 1 if current_month > 1 else 12)[1]}.{current_month - 1 if current_month > 1 else 12}", f"Višak fonda ({current_month} {current_year})", f"Fond sati s {monthrange(current_year, current_month)[1]}.{current_month}"]
-    
+    agg_start_row += 1
+
+    # Headers: rb. first, then Prezime i ime
+    sub_headers = [
+        'rb.', 'PREZIME I IME',
+        f"Fond sati s {monthrange(current_year, current_month - 1 if current_month > 1 else 12)[1]}.{(current_month - 1 if current_month > 1 else 12)}",
+        f"Višak fonda ({current_month} {current_year})",
+        f"Fond sati s {monthrange(current_year, current_month)[1]}.{current_month}"
+    ]
+
     for i, header in enumerate(sub_headers):
-        worksheet.merge_range(agg_start_row + 1, i, agg_start_row + 2, i, header, formats['header_format'])
-    agg_start_row += 3
+        worksheet.merge_range(agg_start_row, i, agg_start_row + 1, i, header, formats['header_format'])
+
+    agg_start_row += 2
 
     for idx, employee in enumerate(employees):
         try:
-            previous_excess_record = ExcessHours.objects.get(employee=employee, year=current_year if current_month > 1 else current_year - 1, month=current_month - 1 if current_month > 1 else 12)
+            prev_year = current_year if current_month > 1 else current_year - 1
+            prev_month = current_month - 1 if current_month > 1 else 12
+            previous_excess_record = ExcessHours.objects.get(employee=employee, year=prev_year, month=prev_month)
             previous_excess = previous_excess_record.excess_hours
         except ExcessHours.DoesNotExist:
             previous_excess = 0
@@ -769,19 +828,19 @@ def generate_excess_hours(worksheet, employees, current_year, current_month, for
 
         row_format = formats['gray_format'] if idx % 2 == 0 else formats['white_format']
 
-        worksheet.write(agg_start_row, 0, f"{employee.surname} {employee.name}", row_format)
-        worksheet.write(agg_start_row, 1, idx + 1, row_format)
+        worksheet.write(agg_start_row, 0, idx + 1, row_format)  # rb.
+        worksheet.write(agg_start_row, 1, f"{employee.surname} {employee.name}", row_format) # Prezime i ime
         worksheet.write(agg_start_row, 2, previous_excess, formats['hours_format'])
         worksheet.write(agg_start_row, 3, current_excess, formats['hours_format'])
         worksheet.write(agg_start_row, 4, cumulative_excess_current_month, formats['hours_format'])
 
         agg_start_row += 1
-    
+
     total_row = agg_start_row
     first_data_row = agg_start_row - len(employees)
 
-    worksheet.write(total_row, 0, 'Ukupno', formats['header_format'])
-    worksheet.write(total_row, 1, '', formats['header_format'])  # Empty cell under 'rb'
+    worksheet.write(total_row, 1, 'Ukupno', formats['header_format'])
+    worksheet.write(total_row, 0, '', formats['header_format'])  # Empty cell under 'Prezime i ime'
 
     total_columns = range(2, 5)  # Columns for numerical data
     for col_num in total_columns:
@@ -789,23 +848,40 @@ def generate_excess_hours(worksheet, employees, current_year, current_month, for
         formula = f"=SUM({column_letter_value}{first_data_row + 1}:{column_letter_value}{total_row})"
         worksheet.write_formula(total_row, col_num, formula, formats['total_format'])
 
+
 def generate_vacation_hours(worksheet, employees, current_year, current_month, formats):
-    worksheet.set_column(0, 0, 30)  # Employee name column
-    worksheet.set_column(1, 4, 15)
-    
+    worksheet.set_column(0, 0, 5)  # rb. column
+    worksheet.set_column(1, 1, 30)  # Employee name column
+    worksheet.set_column(2, 5, 15)
+
     agg_vacation_start_row = 0
-    worksheet.merge_range(agg_vacation_start_row, 0, agg_vacation_start_row, 4, 'EVIDENCIJA GODIŠNJIH ODMORA', formats['title_format'])
-    vacation_headers = ['Prezime i ime', f"GO s {monthrange(current_year, current_month - 1 if current_month > 1 else 12)[1]}.{current_month - 1 if current_month > 1 else 12}.{current_year if current_month > 1 else current_year - 1}", f"GO sati ({current_month}.{current_year})", f"GO dani ({current_month}.{current_year})", f"GO s {monthrange(current_year, current_month)[1]}.{current_month}"]
+    worksheet.merge_range(agg_vacation_start_row, 0, agg_vacation_start_row, 5, 'EVIDENCIJA GODIŠNJIH ODMORA', formats['title_format'])
+    agg_vacation_start_row += 1
+
+    vacation_headers = [
+        'rb.', 'Prezime i ime',
+        f"GO s {monthrange(current_year, current_month - 1 if current_month > 1 else 12)[1]}.{(current_month - 1 if current_month > 1 else 12)}.{current_year if current_month > 1 else current_year - 1}",
+        f"GO sati ({current_month}.{current_year})",
+        f"GO dani ({current_month}.{current_year})",
+        f"GO s {monthrange(current_year, current_month)[1]}.{current_month}"
+    ]
 
     for i, header in enumerate(vacation_headers):
-        worksheet.merge_range(agg_vacation_start_row + 1, i, agg_vacation_start_row + 2, i, header, formats['header_format'])
-    agg_vacation_start_row += 3
+        worksheet.merge_range(agg_vacation_start_row, i, agg_vacation_start_row + 1, i, header, formats['header_format'])
+
+    agg_vacation_start_row += 2
 
     for idx, employee in enumerate(employees):
-        previous_vacation_record = ExcessHours.objects.filter(employee=employee, year=current_year if current_month > 1 else current_year - 1, month=current_month - 1 if current_month > 1 else 12).first()
+        previous_vacation_record = ExcessHours.objects.filter(
+            employee=employee,
+            year=current_year if current_month > 1 else current_year - 1,
+            month=current_month - 1 if current_month > 1 else 12
+        ).first()
         previous_vacation_hours = previous_vacation_record.vacation_hours_used if previous_vacation_record else 0
 
-        current_vacation_hours = WorkDay.objects.filter(employee=employee, date__year=current_year, date__month=current_month).aggregate(Sum('vacation_hours'))['vacation_hours__sum'] or 0
+        current_vacation_hours = WorkDay.objects.filter(
+            employee=employee, date__year=current_year, date__month=current_month
+        ).aggregate(Sum('vacation_hours'))['vacation_hours__sum'] or 0
         current_vacation_days = current_vacation_hours / 8
 
         new_cumulative_vacation_hours = previous_vacation_hours + current_vacation_hours
@@ -813,39 +889,43 @@ def generate_vacation_hours(worksheet, employees, current_year, current_month, f
 
         row_format = formats['gray_format'] if idx % 2 == 0 else formats['white_format']
 
-        worksheet.write(agg_vacation_start_row, 0, f"{employee.surname} {employee.name}", row_format)
-        worksheet.write(agg_vacation_start_row, 1, previous_vacation_hours / 8, formats['hours_format'])
-        worksheet.write(agg_vacation_start_row, 2, current_vacation_hours, formats['hours_format'])
-        worksheet.write(agg_vacation_start_row, 3, current_vacation_days, formats['hours_format'])
-        worksheet.write(agg_vacation_start_row, 4, new_cumulative_vacation_days, formats['hours_format'])
+        worksheet.write(agg_vacation_start_row, 0, idx + 1, row_format)  # rb.
+        worksheet.write(agg_vacation_start_row, 1, f"{employee.surname} {employee.name}", row_format)
+        worksheet.write(agg_vacation_start_row, 2, previous_vacation_hours / 8, formats['hours_format'])
+        worksheet.write(agg_vacation_start_row, 3, current_vacation_hours, formats['hours_format'])
+        worksheet.write(agg_vacation_start_row, 4, current_vacation_days, formats['hours_format'])
+        worksheet.write(agg_vacation_start_row, 5, new_cumulative_vacation_days, formats['hours_format'])
 
         agg_vacation_start_row += 1
-        
+
     total_row = agg_vacation_start_row
     first_data_row = agg_vacation_start_row - len(employees)
-    
-    worksheet.write(total_row, 0, 'Ukupno', formats['header_format'])
-    worksheet.write(total_row, 1, '', formats['header_format'])  # Empty cell under 'rb'
 
-    total_columns = range(2, 5)  # Columns for numerical data
-    for col_num in total_columns:
+    worksheet.write(total_row, 1, 'Ukupno', formats['header_format'])
+    worksheet.write(total_row, 0, '', formats['header_format'])
+
+    # Summations for columns 2 to 5
+    for col_num in range(2, 6):
         column_letter_value = xlsxwriter.utility.xl_col_to_name(col_num)
         formula = f"=SUM({column_letter_value}{first_data_row + 1}:{column_letter_value}{total_row})"
         worksheet.write_formula(total_row, col_num, formula, formats['total_format'])
 
 
 
+
 def generate_overtime_hours(worksheet, employees, current_year, current_month, formats):
-    worksheet.set_column(0, 0, 30)  # Employee name column
-    worksheet.set_column(1, 1, 5)
+    worksheet.set_column(0, 0, 5)  # rb. column
+    worksheet.set_column(1, 1, 30)  # Employee name column
     worksheet.set_column(2, 8, 20)
     agg_overtime_start_row = 0
 
     overtime_headers = [
-        'Prezime i ime', 'rb', 'Prek. pripreme', 'Prek. USLUGA priprema', 
-        'Prek. višak fonda', 'Prekovremeno slobodan dan', 
-        'Prekovremeno slobodan dan usluga', 'Ukupno prek.', 'Ukupno prek. USLUGA'
+        'rb.', 'Prezime i ime',
+        'Prek. pripreme', 'Prek. USLUGA priprema', 'Prek. višak fonda',
+        'Prekovremeno slobodan dan', 'Prekovremeno slobodan dan usluga',
+        'Ukupno prek.', 'Ukupno prek. USLUGA'
     ]
+
     worksheet.merge_range(
         agg_overtime_start_row, 0, agg_overtime_start_row, 
         9, 'EVIDENCIJA PREKOVREMENIH SATI', formats['title_format']
@@ -868,8 +948,8 @@ def generate_overtime_hours(worksheet, employees, current_year, current_month, f
 
         row_format = formats['gray_format'] if idx % 2 == 0 else formats['white_format']
 
-        worksheet.write(agg_overtime_start_row, 0, f"{employee.surname} {employee.name}", row_format)
-        worksheet.write(agg_overtime_start_row, 1, idx + 1, row_format)
+        worksheet.write(agg_overtime_start_row, 0, idx + 1, row_format)  # rb.
+        worksheet.write(agg_overtime_start_row, 1, f"{employee.surname} {employee.name}", row_format) # Prezime i ime
         worksheet.write(agg_overtime_start_row, 2, total_overtime_preparation, formats['hours_format'])
         worksheet.write(agg_overtime_start_row, 3, total_overtime_service, formats['hours_format'])
         worksheet.write(agg_overtime_start_row, 4, total_overtime_excess_fond, formats['hours_format'])
@@ -882,6 +962,9 @@ def generate_overtime_hours(worksheet, employees, current_year, current_month, f
 
     total_row = agg_overtime_start_row
     first_data_row = agg_overtime_start_row - len(employees)
+
+    worksheet.write(total_row, 1, 'Ukupno', formats['header_format'])
+    worksheet.write(total_row, 0, '', formats['header_format'])
 
     total_columns = range(2, 9)  # Columns with numerical data (columns 2 to 8)
     for col_num in total_columns:

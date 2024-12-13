@@ -4,33 +4,71 @@
 {% load dict_utils %}
 {% load custom_tags %}
 {% block content %}
-<div class="container mx-auto p-4">
+<div class="container mx-auto p-4" x-data="profilePageData()" >
     <h1 class="text-3xl font-bold mb-6">Profil Radnika</h1>
 
-<!-- Personal Information -->
-<div x-data="{ openVacationHoursModal: false }" class="mb-6 p-6 bg-white rounded-lg shadow-md">
-    <h2 class="text-2xl font-semibold mb-4">Osobni Podaci</h2>
-    <p class="text-lg mb-2"><strong>Ime:</strong> {{ employee.name }} {{ employee.surname }}</p>
-    <p class="text-lg mb-2"><strong>Pozicija:</strong> {{ employee.role }}</p>
-    <p class="text-lg mb-2"><strong>Grupa:</strong>
-        {% if employee.group == '1' %} Ured
-        {% elif employee.group == '2' %} Crvena smjena
-        {% elif employee.group == '3' %} Zelena smjena
-        {% elif employee.group == '4' %} Plava smjena
-        {% elif employee.group == '5' %} Crna smjena
-        {% elif employee.group == '6' %} Ljubičasta smjena
-        {% else %} Nepoznata Grupa
-        {% endif %}
-    </p>
-    <p class="text-lg"><strong>Slobodni dani po izboru:</strong> {{ free_days_choice_count }}/2</p>
-    <!-- Display total vacation hours with option to edit -->
-    <div class="mt-4">
-        <p class="text-lg"><strong>Ukupno godišnjih sati:</strong> {{ employee.total_vacation_hours }}</p>
-        <button @click="openVacationHoursModal = true"
-            class="mt-2 px-4 py-2 bg-blue-500 hover:bg-blue-700 text-white font-bold rounded-lg shadow">Uredi
-            Godišnje Sate</button>
+    <!-- Personal Information -->
+    <div class="mb-6 p-6 bg-white rounded-lg shadow-md">
+        <h2 class="text-2xl font-semibold mb-4">Osobni Podaci</h2>
+        <p class="text-lg mb-2"><strong>Ime:</strong> {{ employee.name }} {{ employee.surname }}</p>
+        <p class="text-lg mb-2"><strong>Pozicija:</strong> {{ employee.role }}</p>
+        <p class="text-lg mb-2"><strong>Grupa:</strong>
+            {% if employee.group == '1' %} Ured
+            {% elif employee.group == '2' %} Crvena smjena
+            {% elif employee.group == '3' %} Zelena smjena
+            {% elif employee.group == '4' %} Plava smjena
+            {% elif employee.group == '5' %} Crna smjena
+            {% elif employee.group == '6' %} Ljubičasta smjena
+            {% else %} Nepoznata Grupa
+            {% endif %}
+        </p>
+        
+        <!-- Role number editing -->
+        <div class="text-lg font-medium mb-2"
+             x-data="{ editingRoleNumber: false }"
+        >
+            <strong>Broj pozicije:</strong>
+            <span x-show="!editingRoleNumber" class="ml-2">
+                <span x-text="roleNumber"></span>
+                <button @click="editingRoleNumber = true" class="ml-2 text-blue-500 hover:text-blue-700">
+                    <img src="{% static 'icons/edit.svg' %}" class="inline w-4 h-4">
+                </button>
+            </span>
+            <span x-show="editingRoleNumber" class="ml-2">
+                <input type="number" x-model="roleNumber" class="border px-2 py-1 rounded">
+                <button @click="updateEmployeeField('role_number', roleNumber); editingRoleNumber=false" class="ml-2 bg-blue-500 text-white px-2 py-1 rounded">Spremi</button>
+                <button @click="editingRoleNumber=false" class="ml-2 bg-gray-300 px-2 py-1 rounded">Odustani</button>
+            </span>
+        </div>
+
+        <!-- Excess hours editing -->
+        <div class="text-lg font-medium mb-2"
+             x-data="{ editingExcess: false }"
+        >
+            <strong>Višak sati (mjesec):</strong>
+            <span x-show="!editingExcess" class="ml-2">
+                <span x-text="excess"></span>
+                <button @click="editingExcess = true" class="ml-2 text-blue-500 hover:text-blue-700">
+                    <img src="{% static 'icons/edit.svg' %}" class="inline w-4 h-4">
+                </button>
+            </span>
+            <span x-show="editingExcess" class="ml-2">
+                <input type="number" step="0.5" x-model="excess" class="border px-2 py-1 rounded">
+                <button @click="updateMonthlyExcessHours(excess); editingExcess=false" class="ml-2 bg-blue-500 text-white px-2 py-1 rounded">Spremi</button>
+                <button @click="editingExcess=false" class="ml-2 bg-gray-300 px-2 py-1 rounded">Odustani</button>
+            </span>
+        </div>
+
+        <p class="text-lg"><strong>Slobodni dani po izboru:</strong> {{ free_days_choice_count }}/2</p>
+        <div class="mt-4">
+            <p class="text-lg"><strong>Ukupno godišnjih sati:</strong> {{ employee.total_vacation_hours }}</p>
+            <button @click="openVacationHoursModal = true"
+                    class="mt-2 px-4 py-2 bg-blue-500 hover:bg-blue-700 text-white font-bold rounded-lg shadow">
+                Uredi Godišnje Sate
+            </button>
+        </div>
     </div>
-</div>
+
 
     <!-- Monthly Hours Table -->
     <div class="mt-6 p-6 bg-white rounded-lg shadow-md">
@@ -74,7 +112,7 @@
                         <th data-field="overtime_hours"
                             class="px-2 py-1 bg-gray-100 text-center text-xs font-medium text-gray-500 uppercase tracking-wider"
                             style="width: 70px;">
-                            Prek. Sati
+                            Prek. Priprm
                         </th>
                         <th data-field="overtime_service"
                             class="px-2 py-1 bg-gray-100 text-center text-xs font-medium text-gray-500 uppercase tracking-wider"
@@ -666,6 +704,87 @@
 
 
 <script>
+    function profilePageData() {
+        return {
+            // Convert template variables to strings and then parse them to avoid syntax issues
+            openVacationHoursModal: false,
+            roleNumber: parseInt("{{ employee.role_number|default:'0' }}", 10),
+            excess: parseFloat("{{ excess_hours_value|default:'0' }}"),
+
+            showAlert(message, icon) {
+                Swal.fire({
+                    text: message,
+                    icon: icon,
+                    confirmButtonText: 'U redu',
+                    confirmButtonColor: '#3085d6'
+                });
+            },
+
+            getCSRFToken() {
+                let cookieValue = null;
+                if (document.cookie && document.cookie !== '') {
+                    const cookies = document.cookie.split(';').map(c => c.trim());
+                    for (let cookie of cookies) {
+                        if (cookie.startsWith('csrftoken=')) {
+                            cookieValue = decodeURIComponent(cookie.substring('csrftoken='.length));
+                            break;
+                        }
+                    }
+                }
+                return cookieValue;
+            },
+
+            updateEmployeeField(field, value) {
+                fetch(`/update_employee_field/{{employee.id}}/`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': this.getCSRFToken()
+                    },
+                    body: JSON.stringify({field: field, value: value})
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status !== 'success') {
+                        this.showAlert('Greška pri ažuriranju polja: ' + data.message, 'error');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    this.showAlert('Greška pri ažuriranju polja', 'error');
+                });
+            },
+
+            updateMonthlyExcessHours(value) {
+                const currentMonthStr = "{{ selected_date|date:'Y-m-d' }}";
+                const currentDate = new Date(currentMonthStr);
+                const year = currentDate.getFullYear();
+                const month = currentDate.getMonth() + 1;
+
+                fetch(`/update_monthly_excess_hours/{{employee.id}}/`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': this.getCSRFToken()
+                    },
+                    body: JSON.stringify({value: value, year: year, month: month})
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status !== 'success') {
+                        this.showAlert('Greška pri ažuriranju viška sati: ' + data.message, 'error');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    this.showAlert('Greška pri ažuriranju viška sati', 'error');
+                });
+            }
+        };
+    }
+</script>
+
+<script>
     document.addEventListener('DOMContentLoaded', function () {
         // Handle edit sick leave
 const editSickLeaveButtons = document.querySelectorAll('.edit-sick-leave');
@@ -876,6 +995,8 @@ editSickLeaveForm.addEventListener('submit', function (event) {
             }
         });
 
+        
+
         // Function to remove WorkDay entry
         function removeWorkdayEntry(employeeId, date, shiftTypeId) {
             fetch(`/remove_workday_entry/${employeeId}/`, {
@@ -986,6 +1107,7 @@ editSickLeaveForm.addEventListener('submit', function (event) {
             row.classList.remove('highlighted-row');
         }
 
+
         // CSRF token function
         function getCookie(name) {
             let cookieValue = null;
@@ -1021,6 +1143,8 @@ editSickLeaveForm.addEventListener('submit', function (event) {
         }
     });
 </script>
+
+    
 
 <!-- Add the CSS styles for highlighting and modal -->
 <style>

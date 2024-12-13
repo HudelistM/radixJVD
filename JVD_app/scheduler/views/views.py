@@ -44,6 +44,10 @@ def playground(request):
 def is_ajax(request):
     return request.headers.get('x-requested-with') == 'XMLHttpRequest'
 
+def is_office_employee(employee):
+    return (employee.group == '1') or (employee.group == '6' and employee.name == 'Ana' and employee.surname == 'Bazijanec')
+
+
 @login_required
 def landingPage(request):
     if not request.user.is_authenticated:
@@ -157,8 +161,6 @@ def is_night_shift_start(wd):
 @login_required
 def schedule_view(request):
 
-    employees = Employee.objects.all().order_by('group', 'role_number')
-    employee_groups = employees.values_list('group', flat=True).distinct()
     date_start_str = request.GET.get('date_start')
     date_end_str = request.GET.get('date_end')
     month_start_str = request.GET.get('month_start')
@@ -175,45 +177,39 @@ def schedule_view(request):
         # Set date_end to the last day of the month
         date_end = date_start.replace(day=calendar.monthrange(date_start.year, date_start.month)[1])
 
-    # Extend to cover the entire week of both the first and last day
     week_start_date = get_first_day_of_week(date_start)  # Monday of the first week
-    week_end_date = get_last_day_of_week(date_end)  # Sunday of the last week
-
-    # Create a list of dates from the first Monday to the last Sunday
+    week_end_date = get_last_day_of_week(date_end)       # Sunday of the last week
     num_days = (week_end_date - week_start_date).days + 1
     month_dates = [week_start_date + timedelta(days=i) for i in range(num_days)]
 
     shift_types = ShiftType.objects.all()
 
-    # Prepare schedule data using WorkDay
-    schedule_data = {}
+    # Prepare schedule data
     workdays = WorkDay.objects.filter(date__range=[week_start_date, week_end_date]).select_related('employee', 'shift_type')
-    
-
+    schedule_data = {}
     for day in month_dates:
         day_key = day.strftime('%Y-%m-%d')
         schedule_data[day_key] = {}
         for shift_type in shift_types:
-            employees = []
+            assigned_employees = []
             for wd in workdays:
                 if wd.date == day and wd.shift_type == shift_type:
                     include_wd = True
-                    if shift_type.isNightShift:
-                        # Use the helper function to determine if this is the start of a night shift
-                        if not is_night_shift_start(wd):
-                            include_wd = False
+                    if shift_type.isNightShift and not is_night_shift_start(wd):
+                        include_wd = False
                     if include_wd:
-                        employees.append(wd.employee)
-            schedule_data[day_key][shift_type.id] = employees if employees else None
+                        assigned_employees.append(wd.employee)
+            schedule_data[day_key][shift_type.id] = assigned_employees if assigned_employees else None
 
-    # Fetch employees and sort them by group and role_number
-    employees = Employee.objects.all().order_by('group', 'role_number')
+    # Filter out group 1 employees and Ana Bazijanec from the displayed employees
+    employees = Employee.objects.exclude(group='1').exclude(Q(group='6', surname='Bazijanec', name='Ana')).order_by('group', 'role_number')
+    employee_groups = employees.values_list('group', flat=True).distinct()
 
     context = {
-        'month_dates': month_dates,  # Dates include entire weeks covering the month
+        'month_dates': month_dates,
         'shift_types': shift_types,
         'schedule_data': schedule_data,
-        'employees': employees,  # Pass sorted employees to the template
+        'employees': employees,
         'schedule_view': True,
         'current_month_start': date_start.strftime('%Y-%m-%d'),
         'date_start': date_start.strftime('%Y-%m-%d'),
@@ -225,6 +221,8 @@ def schedule_view(request):
         return render(request, 'scheduler/scheduler_grid_inner.html', context)
     else:
         return render(request, 'scheduler/schedule_grid.html', context)
+
+
 
 @require_http_methods(["GET"])
 def api_schedule_data(request):
@@ -242,18 +240,21 @@ def api_schedule_data(request):
     else:
         return JsonResponse({'error': 'Invalid or missing date parameters'}, status=400)
 
+    # Exclude office employees and Ana Bazijanec directly in the query
+    office_ids = Employee.objects.filter(
+        Q(group='1') | (Q(group='6', surname='Bazijanec', name='Ana'))
+    ).values_list('id', flat=True)
+
     workdays = WorkDay.objects.filter(
         date__range=[date_start, date_end]
-    ).select_related('employee', 'shift_type')
+    ).exclude(employee_id__in=office_ids).select_related('employee', 'shift_type')
 
     schedule_dict = defaultdict(lambda: defaultdict(list))
 
     for wd in workdays:
         include_wd = True
-        if wd.shift_type.isNightShift:
-            # Use the helper function to determine if this is the start of a night shift
-            if not is_night_shift_start(wd):
-                include_wd = False
+        if wd.shift_type.isNightShift and not is_night_shift_start(wd):
+            include_wd = False
         if include_wd:
             date_str = wd.date.strftime('%Y-%m-%d')
             shift_type_id = wd.shift_type.id
@@ -273,6 +274,7 @@ def api_schedule_data(request):
 
     schedule_list = list(schedule_dict.values())
     return JsonResponse(schedule_list, safe=False)
+
 
 
 
@@ -303,9 +305,14 @@ def update_overtime_hours(request):
             work_day.night_hours = float(data.get('night_hours', 0))
         if 'overtime_hours' in data:
             overtime_hours = float(data.get('overtime_hours', 0))
-            # Adjust on_call_hours by subtracting overtime_hours
-            work_day.on_call_hours = max(work_day.on_call_hours - overtime_hours, 0)
+            if work_day.on_call_hours > 0:
+                # Subtract as much as possible from on_call_hours
+                # If overtime_hours > on_call_hours, we set on_call to 0, but still record all overtime_hours
+                # This means some of the overtime is effectively 'regular' overtime (not subtracting from on_call)
+                work_day.on_call_hours = max(work_day.on_call_hours - overtime_hours, 0)
+            # Regardless of whether we subtracted from on_call_hours, set the overtime_hours field
             work_day.overtime_hours = overtime_hours
+
         if 'overtime_service' in data:
             overtime_service = float(data.get('overtime_service', 0))
             # Adjust on_call_hours by subtracting overtime_service
