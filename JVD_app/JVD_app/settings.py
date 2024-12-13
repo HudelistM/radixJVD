@@ -43,6 +43,7 @@ INSTALLED_APPS = [
     'django_browser_reload',
     'debug_toolbar',
     'scheduler',
+    'django_crontab',
 ]
 
 MIDDLEWARE = [
@@ -56,6 +57,14 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     "django_browser_reload.middleware.BrowserReloadMiddleware",
 ]
+
+CRONJOBS = [
+    # Run fill_office_hours_daily at midnight every day
+    ('0 0 * * *', 'django.core.management.call_command', ['fill_office_hours_daily']),
+    # Run calculate_monthly_excess at 1 AM on the first day of each month
+    ('0 1 1 * *', 'django.core.management.call_command', ['calculate_monthly_excess'])
+]
+
 
 ROOT_URLCONF = 'JVD_app.urls'
 
