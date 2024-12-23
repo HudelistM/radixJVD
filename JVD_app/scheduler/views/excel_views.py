@@ -13,6 +13,8 @@ from ..models import ShiftType, Employee, WorkDay, FixedHourFund, Holiday, Exces
 from io import BytesIO
 import calendar
 from django.contrib.auth.decorators import login_required
+import logging
+logger = logging.getLogger(__name__)
 
 import openpyxl
 from datetime import timedelta, datetime
@@ -332,93 +334,104 @@ def download_sihterica_ina(request):
 
 def download_sihterica_with_filters(request, group_filter=None, exclude_group=None):
     month_str = request.GET.get('month')
-    if month_str:
-        start_date = datetime.strptime(month_str, '%Y-%m-%d').date()
-    else:
-        start_date = date.today().replace(day=1)
-    
-    current_year = start_date.year
-    current_month = start_date.month
-    days_in_month = monthrange(current_year, current_month)[1]
-    
-    # Define a role priority for group 1 employees
-    role_priority = Case(
-        When(role='Zapovjednik', then=Value(1)),
-        When(role='Zamjenik zapovjednika', then=Value(2)),
-        When(role='Rukovatelj opcih ekonomskih i komercijalnih poslova', then=Value(3)),
-        When(role='Vatrogasac preventivac', then=Value(4)),
-        When(role='Spremacica', then=Value(5)),
-        When(role='Viši referent za ekonomske poslove', then=Value(6)),
-        default=Value(999),
-        output_field=IntegerField()
-    )
+    try:
+        if month_str:
+            start_date = datetime.strptime(month_str, '%Y-%m-%d').date()
+        else:
+            start_date = date.today().replace(day=1)
+        
+        current_year = start_date.year
+        current_month = start_date.month
+        days_in_month = monthrange(current_year, current_month)[1]
+        
+        # Define a role priority for group 1 employees
+        role_priority = Case(
+            When(role='Zapovjednik', then=Value(1)),
+            When(role='Zamjenik zapovjednika', then=Value(2)),
+            When(role='Rukovatelj opcih ekonomskih i komercijalnih poslova', then=Value(3)),
+            When(role='Vatrogasac preventivac', then=Value(4)),
+            When(role='Spremacica', then=Value(5)),
+            When(role='Viši referent za ekonomske poslove', then=Value(6)),
+            default=Value(999),
+            output_field=IntegerField()
+        )
 
-    # For group 1 (office) employees, sort by custom role order, then surname, then name
-    group1_employees = Employee.objects.filter(group='1').annotate(
-        role_order=role_priority
-    ).order_by('role_order', 'surname', 'name')
+        # For group 1 (office) employees, sort by custom role order, then surname, then name
+        group1_employees = Employee.objects.filter(group='1').annotate(
+            role_order=role_priority
+        ).order_by('role_order', 'surname', 'name')
 
-    # For other employees, sort by group_number, role_number_int, then surname, then name
-    other_employees = Employee.objects.exclude(group='1').annotate(
-        group_number=Cast('group', output_field=IntegerField()),
-        role_number_int=Coalesce('role_number', Value(0))
-    ).order_by('group_number', 'role_number_int', 'surname', 'name')
+        # For other employees, sort by group_number, role_number_int, then surname, then name
+        other_employees = Employee.objects.exclude(group='1').annotate(
+            group_number=Cast('group', output_field=IntegerField()),
+            role_number_int=Coalesce('role_number', Value(0))
+        ).order_by('group_number', 'role_number_int', 'surname', 'name')
 
-    # Apply filters if provided
-    if group_filter:
-        group1_employees = group1_employees.filter(group=group_filter)
-        other_employees = other_employees.filter(group=group_filter)
-    if exclude_group:
-        group1_employees = group1_employees.exclude(group=exclude_group)
-        other_employees = other_employees.exclude(group=exclude_group)
+        # Apply filters if provided
+        if group_filter:
+            group1_employees = group1_employees.filter(group=group_filter)
+            other_employees = other_employees.filter(group=group_filter)
+        if exclude_group:
+            group1_employees = group1_employees.exclude(group=exclude_group)
+            other_employees = other_employees.exclude(group=exclude_group)
 
-    # Combine
-    employees = list(group1_employees) + list(other_employees)
+        # Combine
+        employees = list(group1_employees) + list(other_employees)
 
-    # Now employees is correctly filtered and sorted
-    output = BytesIO()
-    workbook = xlsxwriter.Workbook(output, {'in_memory': True})
+        # Now employees is correctly filtered and sorted
+        output = BytesIO()
+        workbook = xlsxwriter.Workbook(output, {'in_memory': True})
 
-    # Main timesheet worksheet
-    timesheet_worksheet = workbook.add_worksheet('Šihterica')
+        # Main timesheet worksheet
+        timesheet_worksheet = workbook.add_worksheet('Šihterica')
 
-    # Set up formats
-    formats = setup_formats(workbook)
-    timesheet_formats = setup_timesheet_formats(workbook)
+        # Set up formats
+        formats = setup_formats(workbook)
+        timesheet_formats = setup_timesheet_formats(workbook)
 
-    write_headers(timesheet_worksheet, current_month, current_year, days_in_month, timesheet_formats)
-    fill_timesheet(timesheet_worksheet, employees, current_year, current_month, days_in_month, timesheet_formats)
+        write_headers(timesheet_worksheet, current_month, current_year, days_in_month, timesheet_formats)
+        fill_timesheet(timesheet_worksheet, employees, current_year, current_month, days_in_month, timesheet_formats)
 
-    # Generate other sheets
-    overview_worksheet = workbook.add_worksheet('Pregled svih sati')
-    generate_total_overview(overview_worksheet, employees, current_year, current_month, formats)
+        # Generate other sheets
+        overview_worksheet = workbook.add_worksheet('Pregled svih sati')
+        generate_total_overview(overview_worksheet, employees, current_year, current_month, formats)
 
-    preparation_worksheet = workbook.add_worksheet('Sati pripreme')
-    generate_preparation_hours(preparation_worksheet, employees, current_year, current_month, formats)
+        preparation_worksheet = workbook.add_worksheet('Sati pripreme')
+        generate_preparation_hours(preparation_worksheet, employees, current_year, current_month, formats)
 
-    excess_worksheet = workbook.add_worksheet('Evidencija viška-manjka sati')
-    generate_excess_hours(excess_worksheet, employees, current_year, current_month, formats)
+        excess_worksheet = workbook.add_worksheet('Evidencija viška-manjka sati')
+        generate_excess_hours(excess_worksheet, employees, current_year, current_month, formats)
 
-    vacation_worksheet = workbook.add_worksheet('Evidencija godišnjih odmora')
-    generate_vacation_hours(vacation_worksheet, employees, current_year, current_month, formats)
+        vacation_worksheet = workbook.add_worksheet('Evidencija godišnjih odmora')
+        generate_vacation_hours(vacation_worksheet, employees, current_year, current_month, formats)
 
-    overtime_worksheet = workbook.add_worksheet('Evidencija prekovremenih sati')
-    generate_overtime_hours(overtime_worksheet, employees, current_year, current_month, formats)
+        overtime_worksheet = workbook.add_worksheet('Evidencija prekovremenih sati')
+        generate_overtime_hours(overtime_worksheet, employees, current_year, current_month, formats)
 
-    workbook.close()
-    output.seek(0)
+        # Close workbook, produce response
+        workbook.close()
+        output.seek(0)
+        response = HttpResponse(
+            content=output.read(),
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
 
-    # Adjust filename based on filter
-    if exclude_group == '6':
-        filename_suffix = ''
-    elif group_filter == '6':
-        filename_suffix = 'INA '
-    else:
-        filename_suffix = ''
+        if exclude_group == '6':
+            filename_suffix = ''
+        elif group_filter == '6':
+            filename_suffix = 'INA '
+        else:
+            filename_suffix = ''
+        response['Content-Disposition'] = (
+            f'attachment; filename="{filename_suffix}sihterica_{current_month}_{current_year}.xlsx"'
+        )
 
-    response = HttpResponse(content=output.read(), content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-    response['Content-Disposition'] = f'attachment; filename="{filename_suffix}sihterica_{current_month}_{current_year}.xlsx"'
-    return response
+        return response
+
+    except Exception as e:
+        logger.exception("Error generating sihterica (group_filter=%s, exclude_group=%s, month=%s)", group_filter, exclude_group, month_str)
+        # You can either return a plain HttpResponse or render an error page.
+        return HttpResponse("Greška prilikom generiranja Šihterice.", status=500)
 
 
 def setup_formats(workbook):
