@@ -1,42 +1,121 @@
 {% extends 'base.html' %}
 {% load static %}
+
 {% block content %}
-  <div class="container mt-8">
-    <h1 class="text-2xl mb-4">Dostupni dokumenti</h1>
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-      {% for doc in documents %}
-        <div class="bg-white rounded shadow p-4 hover:shadow-lg transition-shadow duration-300 flex items-center justify-between">
-          <div>
-            <div class="flex items-center mb-2">
-              <img src="{% static 'icons/'|add:doc.type|add:'.png' %}" alt="{{ doc.type }}" class="w-6 h-6 mr-2">
-              <h2 class="text-xl">{{ doc.name }}</h2>
-            </div>
-            <select id="month-select-{{ forloop.counter }}" class="border p-2 rounded w-full mt-2">
+<div class="container mt-8">
+  <h1 class="text-2xl mb-4">Dostupni dokumenti</h1>
+
+  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+    {% for doc in documents %}
+      <div class="bg-white rounded shadow p-4 hover:shadow-lg transition-shadow duration-300 flex items-center justify-between w-full">
+        
+        <!-- LEFT SIDE: Title & dropdowns -->
+        <div>
+          <!-- Document Icon + Name -->
+          <div class="flex items-center mb-2">
+            <img
+              src="{% static 'icons/'|add:doc.type|add:'.png' %}"
+              alt="{{ doc.type }}"
+              class="w-6 h-6 mr-2"
+            >
+            <h2 class="text-xl">{{ doc.name }}</h2>
+          </div>
+
+          <!-- Two dropdowns side by side -->
+          <div class="flex items-center space-x-2 mt-2">
+            <!-- Year Dropdown (slightly narrower) -->
+            <select
+              id="year-select-{{ forloop.counter }}"
+              class="border p-2 rounded w-20 text-center"
+            >
+              {% for y in year_range %}
+                <option
+                  value="{{ y }}"
+                  {% if y == current_year %}selected{% endif %}
+                >
+                  {{ y }}
+                </option>
+              {% endfor %}
+            </select>
+
+            <!-- Month Dropdown (keeps your old month list / naming) -->
+            <select
+              id="month-select-{{ forloop.counter }}"
+              class="border p-2 rounded w-32"
+            >
               <option value="">Odaberite mjesec</option>
               {% for month in months %}
+                <!-- For labeling, we show 'month.name' e.g. "Siječanj" etc.
+                     For the 'value', we keep your original "YYYY-MM-01"
+                     (based on current_year) so the user sees correct text in dropdown. -->
                 <option value="{{ month.value }}">{{ month.name }}</option>
               {% endfor %}
             </select>
           </div>
-          <div class="ml-4">
-            {% if doc.url == "#" %}
-              <p class="text-gray-500">Placeholder za {{ doc.name }}</p>
-            {% else %}
-              <a href="#" id="download-button-{{ forloop.counter }}" class="inline-block p-2 rounded hover:bg-red-500 transition-colors duration-300 hover:shadow-md" title="Preuzmi" onclick="downloadDocument('{{ doc.url }}', '{{ forloop.counter }}')">
-                <img src="{% static 'icons/download.png' %}" alt="Download" class="w-6 h-6">
-              </a>
-            {% endif %}
-          </div>
         </div>
-      {% endfor %}
-    </div>
-  </div>
 
-  <script>
-    function downloadDocument(baseUrl, counter) {
-      const select = document.getElementById(`month-select-${counter}`);
-      const selectedMonth = select.value || new Date().toISOString().slice(0, 7) + '-01';
-      window.location.href = `${baseUrl}?month=${selectedMonth}`;
+        <!-- RIGHT SIDE: Download area -->
+        <div class="ml-4">
+          {% if doc.url == "#" %}
+            <p class="text-gray-500">Placeholder za {{ doc.name }}</p>
+          {% else %}
+            <a
+              href="#"
+              id="download-button-{{ forloop.counter }}"
+              class="inline-block p-2 rounded hover:bg-red-500 transition-colors duration-300 hover:shadow-md"
+              title="Preuzmi"
+              onclick="downloadDocument('{{ doc.url }}', '{{ forloop.counter }}')"
+            >
+              <img
+                src="{% static 'icons/download.png' %}"
+                alt="Download"
+                class="w-6 h-6"
+              >
+            </a>
+          {% endif %}
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+</div>
+
+<script>
+  /*
+    downloadDocument(baseUrl, counter):
+      1. Get the chosen year from #year-select-COUNTER
+      2. Get the chosen month from #month-select-COUNTER
+         (which might be something like "2024-03-01")
+      3. If no month is picked, fallback to the *current* month.
+      4. Otherwise, parse out the "MM" portion from "YYYY-MM-01"
+      5. Construct final "YYYY-MM-01"
+      6. Go to baseUrl + "?month=YYYY-MM-01"
+  */
+
+  function downloadDocument(baseUrl, counter) {
+    const yearSelect = document.getElementById(`year-select-${counter}`);
+    const monthSelect = document.getElementById(`month-select-${counter}`);
+
+    // 1) Fallback to current year if user didn't pick
+    const pickedYear = yearSelect.value || new Date().getFullYear();
+
+    // 2) Month might be e.g. "2024-03-01" from your loop.
+    //    If the user didn't pick, fallback to the current month.
+    let rawMonthValue = monthSelect.value;
+    if (!rawMonthValue) {
+      // Fallback: build something like "2024-08-01" for the current month
+      const now = new Date();
+      const mm = String(now.getMonth() + 1).padStart(2, '0');
+      rawMonthValue = `${now.getFullYear()}-${mm}-01`;
     }
-  </script>
+
+    // e.g. "2024-03-01" => substring(5,7) => "03"
+    const monthPart = rawMonthValue.substring(5, 7);
+
+    // 3) Build the final "YYYY-MM-01"
+    const finalDate = `${pickedYear}-${monthPart}-01`;
+
+    // 4) Redirect to download with the month param
+    window.location.href = `${baseUrl}?month=${finalDate}`;
+  }
+</script>
 {% endblock %}

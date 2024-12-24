@@ -75,6 +75,7 @@ def get_week_dates(start_date):
 @login_required
 def documents_view(request):
     current_year = datetime.now().year
+    year_range = range(current_year - 2, current_year + 2)  # e.g. previous year, current, next
     croatian_months = {
         1: 'Siječanj', 2: 'Veljača', 3: 'Ožujak', 4: 'Travanj', 5: 'Svibanj', 6: 'Lipanj',
         7: 'Srpanj', 8: 'Kolovoz', 9: 'Rujan', 10: 'Listopad', 11: 'Studeni', 12: 'Prosinac'
@@ -93,7 +94,14 @@ def documents_view(request):
         #{"name": "Šihterica PDF", "type": "pdf", "url": reverse('download_timesheet_pdf')},
     ]
 
-    return render(request, 'scheduler/dokumenti.html', {'documents': documents, 'months': months, 'current_year': current_year})
+    context = {
+        'documents': documents,
+        'croatian_months': croatian_months,
+        'year_range': year_range,
+        'current_year': current_year,
+        'months': months,
+    }
+    return render(request, 'scheduler/dokumenti.html', context)
 
 @login_required
 def radnici(request):
