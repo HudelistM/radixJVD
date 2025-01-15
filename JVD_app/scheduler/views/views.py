@@ -45,7 +45,7 @@ def is_ajax(request):
     return request.headers.get('x-requested-with') == 'XMLHttpRequest'
 
 def is_office_employee(employee):
-    return (employee.group == '1') or (employee.group == '6' and employee.name == 'Ana' and employee.surname == 'Bazijanec')
+    return (employee.group == '1') or (employee.group == '6' and employee.name == 'Ana' and employee.surname == 'Bazijanec') or (employee.group == '2' and employee.name == 'Dražen' and employee.surname == 'Vugrinec')
 
 
 @login_required
@@ -210,7 +210,7 @@ def schedule_view(request):
             schedule_data[day_key][shift_type.id] = assigned_employees if assigned_employees else None
 
     # Filter out group 1 employees and Ana Bazijanec from the displayed employees
-    employees = Employee.objects.exclude(group='1').exclude(Q(group='6', surname='Bazijanec', name='Ana')).order_by('group', 'role_number')
+    employees = Employee.objects.exclude(group='1').exclude(Q(group='6', surname='Bazijanec', name='Ana')).exclude(Q(group='2', surname='Vugrinec', name='Dražen')).order_by('group', 'role_number')
     employee_groups = employees.values_list('group', flat=True).distinct()
 
     context = {

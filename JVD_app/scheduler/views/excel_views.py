@@ -4,6 +4,7 @@ from django.contrib.staticfiles import finders
 
 from calendar import monthrange
 from django.db.models import Sum
+from django.db.models import Q
 from django.db.models import IntegerField, Value
 from django.db.models.functions import Cast, Coalesce
 from django.http import HttpResponse
@@ -303,7 +304,17 @@ def download_schedule(request):
             schedule_data[day_str][shift_type.id] = []
 
     # Fetch WorkDay entries and populate schedule_data
-    workdays = WorkDay.objects.filter(date__in=week_dates).select_related('employee', 'shift_type')
+    workdays = (
+        WorkDay.objects
+        .filter(date__in=week_dates)
+        .exclude(employee__group='1')
+        .exclude(
+            employee__group='6',
+            employee__surname='Bazijanec',
+            employee__name='Ana'
+        )
+        .select_related('employee', 'shift_type')
+    )
     for wd in workdays:
         include_wd = True
         if wd.shift_type.isNightShift:
