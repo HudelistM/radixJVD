@@ -45,7 +45,7 @@ def is_ajax(request):
     return request.headers.get('x-requested-with') == 'XMLHttpRequest'
 
 def is_office_employee(employee):
-    return (employee.group == '1') or (employee.group == '6' and employee.name == 'Ana' and employee.surname == 'Bazijanec')
+    return (employee.group == '1') or (employee.group == '6' and employee.name == 'Ana' and employee.surname == 'Bazijanec') or (employee.group == '2' and employee.name == 'Dražen' and employee.surname == 'Vugrinec')
 
 
 @login_required
@@ -75,6 +75,7 @@ def get_week_dates(start_date):
 @login_required
 def documents_view(request):
     current_year = datetime.now().year
+    year_range = range(current_year - 2, current_year + 2)  # e.g. previous year, current, next
     croatian_months = {
         1: 'Siječanj', 2: 'Veljača', 3: 'Ožujak', 4: 'Travanj', 5: 'Svibanj', 6: 'Lipanj',
         7: 'Srpanj', 8: 'Kolovoz', 9: 'Rujan', 10: 'Listopad', 11: 'Studeni', 12: 'Prosinac'
@@ -93,7 +94,14 @@ def documents_view(request):
         #{"name": "Šihterica PDF", "type": "pdf", "url": reverse('download_timesheet_pdf')},
     ]
 
-    return render(request, 'scheduler/dokumenti.html', {'documents': documents, 'months': months, 'current_year': current_year})
+    context = {
+        'documents': documents,
+        'croatian_months': croatian_months,
+        'year_range': year_range,
+        'current_year': current_year,
+        'months': months,
+    }
+    return render(request, 'scheduler/dokumenti.html', context)
 
 @login_required
 def radnici(request):
@@ -202,7 +210,7 @@ def schedule_view(request):
             schedule_data[day_key][shift_type.id] = assigned_employees if assigned_employees else None
 
     # Filter out group 1 employees and Ana Bazijanec from the displayed employees
-    employees = Employee.objects.exclude(group='1').exclude(Q(group='6', surname='Bazijanec', name='Ana')).order_by('group', 'role_number')
+    employees = Employee.objects.exclude(group='1').exclude(Q(group='6', surname='Bazijanec', name='Ana')).exclude(Q(group='2', surname='Vugrinec', name='Dražen')).order_by('group', 'role_number')
     employee_groups = employees.values_list('group', flat=True).distinct()
 
     context = {
