@@ -8,13 +8,13 @@
   <table class="min-w-full table-auto">
     <thead class="sticky top-0 bg-gray-100 z-30">
       <tr>
-        <th class="px-2 py-1 border text-center">Datum</th>
+        <th class="px-1 py-1 border text-center text-sm">Datum</th>
         {% for shift_type in reordered_shift_types %}
-        <th class="px-2 py-1 border max-w-32 text-center text-pretty">{{ shift_type.name }}</th>
+        <th class="px-1 py-1 border max-w-32 text-center text-pretty text-sm">{{ shift_type.name }}</th>
         {% endfor %}
       </tr>
     </thead>
-    <tbody x-data>
+    <tbody x-data class="text-xs">
       {% for day in month_dates %}
       {% with weekday=day|date:"w" %}
       <tr data-weekday="{{ weekday }}" :class="{
@@ -23,19 +23,15 @@
           'bg-yellow-100': $el.dataset.weekday == '0' && !($store.scheduleManager.featureToggle && $store.scheduleManager.selectedRow === {{ forloop.counter0 }})
         }" @click="$store.scheduleManager.selectRow({{ forloop.counter0 }})">
         <!-- Date Column -->
-        <td class="px-2 py-1 border text-center max-w-24 date-header">
+        <td class="px-1 py-1 border text-center max-w-24 date-header">
           <div class="font-bold text-center">{{ day|date:"D"|translate_days }}</div>
           <div class="mt-1 text-center">{{ day|date:"d.m.Y" }}</div>
         </td>
         <!-- Shift Columns -->
         {% for shift_type in reordered_shift_types %}
-        <td
-        class="items-center justify-center px-2 py-1 border min-w-[120px] dropzone bg-white rounded border-gray-400 min-h-[40px] shift-type-column shift-type-column-{{ shift_type.id }}"
+        <td class="items-center justify-center px-1 py-1 border min-w-[100px] dropzone bg-transparent rounded border-gray-400 min-h-[30px] shift-type-column shift-type-column-{{ shift_type.id }}"
         data-shift-type-id="{{ shift_type.id }}" data-date="{{ day|date:'Y-m-d' }}"
-        {% if shift_type.category == 'godišnji odmor' or shift_type.category == 'bolovanje' %}
-        data-locked="true"
-        {% endif %}
-      >
+        {% if shift_type.category == 'godišnji odmor' or shift_type.category == 'bolovanje' %} data-locked="true" {% endif %}>
       
           {% with day_str=day|date:"Y-m-d" %}
           {% with employees_list=schedule_data|get_item:day_str|get_item:shift_type.id %}
