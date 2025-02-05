@@ -569,7 +569,7 @@ def update_schedule(request):
 
             # Update work_day fields for the current day
             for key, value in current_day_hours.items():
-                if shift_type.isNightShift and key in ['day_hours', 'night_hours', 'on_call_hours', 'saturday_hours', 'sunday_hours']:
+                if shift_type.isNightShift and key in ['day_hours', 'night_hours', 'on_call_hours', 'saturday_hours', 'sunday_hours','holiday_hours']:
                     setattr(work_day, key, getattr(work_day, key) + value)
                 else:
                     setattr(work_day, key, value)
@@ -584,7 +584,7 @@ def update_schedule(request):
                 )
 
                 for key, value in next_day_hours.items():
-                    if shift_type.isNightShift and key in ['day_hours', 'night_hours', 'on_call_hours', 'saturday_hours', 'sunday_hours']:
+                    if shift_type.isNightShift and key in ['day_hours', 'night_hours', 'on_call_hours', 'saturday_hours', 'sunday_hours','holiday_hours']:
                         setattr(next_work_day, key, getattr(next_work_day, key) + value)
                     else:
                         setattr(next_work_day, key, value)
@@ -595,6 +595,9 @@ def update_schedule(request):
                 original_date = datetime.strptime(data['originalDate'], '%Y-%m-%d').date()
                 original_shift_type = get_object_or_404(ShiftType, pk=data['originalShiftTypeId'])
                 next_day = original_date + timedelta(days=1)
+                print("We are moving")
+                is_original_holiday = Holiday.objects.filter(date=original_date).exists()
+                is_next_holiday = Holiday.objects.filter(date=next_day).exists()
 
                 # Handling workday entries for night shifts
                 original_workday = WorkDay.objects.filter(date=original_date, shift_type=original_shift_type, employee=employee).first()
@@ -602,15 +605,21 @@ def update_schedule(request):
                     if original_shift_type.isNightShift:
                         next_workday = WorkDay.objects.filter(date=next_day, shift_type=original_shift_type, employee=employee).first()
                         if original_workday.day_hours == 3.0 and original_workday.night_hours == 2.0 and next_workday and next_workday.day_hours == 4.0 and next_workday.night_hours == 8.0:
+                            print("We are moving the 1st night shift in the block")
                             original_workday.delete()
                             next_workday.day_hours = 3
                             next_workday.night_hours = 2
+                            if is_next_holiday:
+                                next_workday.holiday_hours = 5
                             next_workday.save()
                         elif original_workday.day_hours > 3.0 and original_workday.night_hours > 6.0 and next_workday and next_workday.day_hours == 1.0 and next_workday.night_hours == 6.0:
+                            print("We are moving the 2nd night shift in the block")
                             next_workday.delete()
                             original_workday.day_hours = 1
                             original_workday.night_hours = 6
                             original_workday.on_call_hours = 0
+                            if is_original_holiday:
+                                original_workday.holiday_hours = 7
                             original_workday.save()
                         else:
                             original_workday.delete()
